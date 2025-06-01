@@ -100,7 +100,7 @@ def getClavesJuegosTemporada(temporada):
     for dia in juegosTemporada:
         if dia['date'] < ultimoPartidoRegistrado:
             continue
-        if dia['date'] >= diaActual:
+        if dia['date'] > diaActual:
             break
         for juego in dia['games']:
             local_id = juego['teams']['home']['team']['id']
@@ -352,14 +352,12 @@ def insertarDatosTablaJugador(jugadoresFaltantes):
         if_table_exists='append'
     )
 
-
 def procesarTemporada(temporada, turno_id):
     clavesJuegosTemporadaorada = getClavesJuegosTemporada(temporada)
     for juego_id in clavesJuegosTemporadaorada:
         datosJuegoRaw = getDatosJuegoRaw(juego_id)
         if datosJuegoRaw is None:
             continue
-        #! Bloque comentado pq ya esta en la base
         datosTablaJuego = getDatosTablaJuego(datosJuegoRaw)
         FkTablaJuego = {
             'estadio_id': datosTablaJuego['estadio_id'],
