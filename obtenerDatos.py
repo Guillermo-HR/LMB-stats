@@ -1,4 +1,6 @@
 # Script para obtener datos de la LMB y guardarlos en una base de datos PostgreSQL
+# Si ya esxisten juegos actualiza solo los juegos pendientes
+
 import requests
 import json
 from datetime import datetime
@@ -6,11 +8,6 @@ import polars as pl
 import psycopg2
 import dotenv
 import os
-
-jugadoresRegistrados = set() # Para evitar busquedas en la base para validar cada jugador
-umpiresRegistrados = set() # Para evitar busquedas en la base para validar cada umpire
-estadiosRegistrados = set() # Para evitar busquedas en la base para validar cada estadio
-equiposRegistrados = set() # Para filtrar solo los juegos de los equipos de la liga
 
 # Datos conexion a la base de datos
 dotenv.load_dotenv()
@@ -32,216 +29,77 @@ connection_uri = f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{databa
 urlBaseV1 = f'https://statsapi.mlb.com/api/v1/'
 urlBaseV1_1 = 'https://statsapi.mlb.com/api/v1.1/'
 
-def limpiarTablas():
-    query = """DELETE FROM {}"""
-    tablas = ['juego_pitcher', 'lanzamiento', 'tipo_lanzamiento', 'turno', 'tipo_turno', 'jugador', 'posicion', 'juego',
-              'equipo', 'tipo_juego', 'estadio', 'status_juego', 'umpire']
+def getJugadoresRegistrados():
+    query = """SELECT jugador_id FROM jugador"""
     with psycopg2.connect(**connection) as conn:
         cursor = conn.cursor()
-        for tabla in tablas:
-            cursor.execute(query.format(tabla))
-        conn.commit()
+        cursor.execute(query)
+        jugadores = cursor.fetchall()
+    return set([jugador[0] for jugador in jugadores])
 
-def getDatosTablaPosicion():
-    datosPosicionesRaw = requests.get(urlBaseV1 + 'positions').content
-    datosPosicionesRaw = json.loads(datosPosicionesRaw)
-    
-    posiciones = {'posicion_id': [], 'descripcion': []}
-    for posicion in datosPosicionesRaw:
-        try:
-            indice_posicion_id = posiciones['posicion_id'].index(posicion['code'])
-            posiciones['descripcion'][indice_posicion_id] += f'/{posicion["fullName"]}'
-        except ValueError:
-            posiciones['posicion_id'].append(posicion['code'])
-            posiciones['descripcion'].append(posicion['fullName'])
-    
-    schema_df_posiciones = {
-        'posicion_id': pl.String,
-        'descripcion': pl.String,
-    }
-    
-    return pl.DataFrame(posiciones, schema=schema_df_posiciones)
+def getUmpiresRegistrados():
+    query = """SELECT umpire_id FROM umpire"""
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        umpires = cursor.fetchall()
+    return set([umpire[0] for umpire in umpires])
 
-def insertarDatosTablaPosicion(datosTablaPosicion):
-    datosTablaPosicion.write_database(
-        table_name='posicion',
-        connection=connection_uri,
-        if_table_exists='append'
-    )
-    return 1
+def getEstadiosRegistrados():
+    query = """SELECT estadio_id FROM estadio"""
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        estadios = cursor.fetchall()
+    return set([estadio[0] for estadio in estadios])
 
-def getDatosTablaTipo_juego():
-    datosTipo_juegoRaw = requests.get(urlBaseV1 + 'gameTypes').content
-    datosTipo_juegoRaw = json.loads(datosTipo_juegoRaw)
-    
-    tipo_juegos = {'tipo_juego_id': [], 'descripcion': []}
-    for tipo_juego in datosTipo_juegoRaw:
-        try:
-            indice_tipo_juego_id = tipo_juegos['tipo_juego_id'].index(tipo_juego['id'])
-            tipo_juegos['descripcion'][indice_tipo_juego_id] += f'/{tipo_juego["description"]}'
-        except ValueError:
-            tipo_juegos['tipo_juego_id'].append(tipo_juego['id'])
-            tipo_juegos['descripcion'].append(tipo_juego['description'])
+def getEquiposRegistrados():
+    query = """SELECT equipo_id FROM equipo"""
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        equipos = cursor.fetchall()
+    return set([equipo[0] for equipo in equipos])
 
-    schema_df_tipo_juegos = {
-        'tipo_juego_id': pl.String,
-        'descripcion': pl.String,
-    }
-    
-    return pl.DataFrame(tipo_juegos, schema=schema_df_tipo_juegos)
+jugadoresRegistrados = getJugadoresRegistrados() # Para evitar busquedas en la base para validar cada jugador
+umpiresRegistrados = getUmpiresRegistrados() # Para evitar busquedas en la base para validar cada umpire
+estadiosRegistrados = getEstadiosRegistrados() # Para evitar busquedas en la base para validar cada estadio
+equiposRegistrados = getEquiposRegistrados() # Para filtrar solo los juegos de los equipos de la liga
 
-def insertarDatosTablaTipo_juego(datosTablaTipo_juego):
-    datosTablaTipo_juego.write_database(
-        table_name='tipo_juego',
-        connection=connection_uri,
-        if_table_exists='append'
-    )
+def getUltimoPartidoRegistrado():
+    query = """SELECT (MAX(DATE_TRUNC('day',primer_lanzamiento)::date ))
+                FROM juego"""
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        ultimoPartidoRegistrado = cursor.fetchone()[0]
+    if ultimoPartidoRegistrado is None:
+        ultimoPartidoRegistrado = datetime(2021, 1, 1).date()
+    return ultimoPartidoRegistrado
 
-def getDatosTablaStatus_juego():
-    datosStatus_juegoRaw = requests.get(urlBaseV1 + 'gameStatus').content
-    datosStatus_juegoRaw = json.loads(datosStatus_juegoRaw)
-    
-    status_juegos = {'status_juego_id': [], 'descripcion': []}
-    for status_juego in datosStatus_juegoRaw:
-        try:
-            indice_status_juego_id = status_juegos['status_juego_id'].index(status_juego['statusCode'])
-            status_juegos['descripcion'][indice_status_juego_id] += f'/{status_juego["detailedState"]}'
-        except ValueError:
-            status_juegos['status_juego_id'].append(status_juego['statusCode'])
-            status_juegos['descripcion'].append(status_juego['detailedState'])
-    
-    schema_df_status_juegos = {
-        'status_juego_id': pl.String,
-        'descripcion': pl.String,
-    }
-    
-    return pl.DataFrame(status_juegos, schema=schema_df_status_juegos)
-
-def insertarDatosTablaStatus_juego(datosTablaStatus_juego):
-    datosTablaStatus_juego.write_database(
-        table_name='status_juego',
-        connection=connection_uri,
-        if_table_exists='append'
-    )
-
-def getDatosTablaTipo_turno():
-    datosTipo_turnoRaw = requests.get(urlBaseV1 + 'eventTypes').content
-    datosTipo_turnoRaw = json.loads(datosTipo_turnoRaw)
-    
-    tipo_turnos = {'tipo_turno_id': [], 'descripcion': []}
-    for tipo_turno in datosTipo_turnoRaw:
-        try:
-            indice_tipo_turno_id = tipo_turnos['tipo_turno_id'].index(tipo_turno['code'])
-            tipo_turnos['descripcion'][indice_tipo_turno_id] += f'/{tipo_turno["description"]}'
-        except ValueError:
-            tipo_turnos['tipo_turno_id'].append(tipo_turno['code'])
-            tipo_turnos['descripcion'].append(tipo_turno['description'])
-    
-    schema_df_tipo_turno = {
-        'tipo_turno_id': pl.String,
-        'descripcion': pl.String,
-    }
-    
-    return pl.DataFrame(tipo_turnos, schema=schema_df_tipo_turno)
-
-def insertarDatosTipo_turno(datosTablaTipo_turno):
-    datosTablaTipo_turno.write_database(
-        table_name='tipo_turno',
-        connection=connection_uri,
-        if_table_exists='append'
-    )
-
-def getDatosTablaTipo_lanzamiento():
-    datosTipo_lanzamientoRaw = requests.get(urlBaseV1 + 'pitchCodes').content
-    datosTipo_lanzamientoRaw = json.loads(datosTipo_lanzamientoRaw)
-    
-    tipo_lanzamientos = {'tipo_lanzamiento_id': [], 'descripcion': []}
-    for tipo_lanzamiento in datosTipo_lanzamientoRaw:
-        try:
-            indice_tipo_lanzamiento_id = tipo_lanzamientos['tipo_lanzamiento_id'].index(tipo_lanzamiento['code'])
-            tipo_lanzamientos['descripcion'][indice_tipo_lanzamiento_id] += f'/{tipo_lanzamiento["description"]}'
-        except ValueError:
-            tipo_lanzamientos['tipo_lanzamiento_id'].append(tipo_lanzamiento['code'])
-            tipo_lanzamientos['descripcion'].append(tipo_lanzamiento['description'])
-    
-    schema_df_tipo_lanzamiento = {
-        'tipo_lanzamiento_id': pl.String,
-        'descripcion': pl.String,
-    }
-    
-    return pl.DataFrame(tipo_lanzamientos, schema=schema_df_tipo_lanzamiento)
-
-def insertarDatosTipo_lanzamiento(datosTablaTipo_lanzamiento):
-    datosTablaTipo_lanzamiento.write_database(
-        table_name='tipo_lanzamiento',
-        connection=connection_uri,
-        if_table_exists='append'
-    )
-
-def getDatosTablaEquipo():
-    datosEquipoRaw = requests.get(urlBaseV1 + 'teams?leagueId=125').content
-    datosEquipoRaw = json.loads(datosEquipoRaw)['teams']
-    
-    equipos = {'equipo_id': [], 'nombre': [], 'abreviacion': [], 'zona': []}
-    for equipo in datosEquipoRaw:
-        equipo_id = int(equipo['id'])
-        nombre = str(equipo['name'])
-        abreviacion = str(equipo['abbreviation'])
-        zona = str(equipo['division']['name'][15:])
-
-        equipos['equipo_id'].append(equipo_id)
-        equipos['nombre'].append(nombre)
-        equipos['abreviacion'].append(abreviacion)
-        equipos['zona'].append(zona)
-
-    # Agregar datos de Mariaches de Guadalajara (no aparence en la API)
-    equipos['equipo_id'].append(5566)
-    equipos['nombre'].append('Mariachis de Guadalajara')
-    equipos['abreviacion'].append('GDL')
-    equipos['zona'].append('Norte')
-    
-    schema_df_equipo = {
-        'equipo_id': pl.Int64,
-        'nombre': pl.String,
-        'abreviacion': pl.String,
-        'zona': pl.String
-    }
-    
-    return pl.DataFrame(equipos, schema=schema_df_equipo)
-
-def insertarDatosEquipo(datosTablaEquipo):
-    datosTablaEquipo.write_database(
-        table_name='equipo',
-        connection=connection_uri,
-        if_table_exists='append'
-    )
-    global equiposRegistrados
-    equiposRegistrados = set(datosTablaEquipo['equipo_id'].to_list())
-
-def prepararBaseDatos():
-    limpiarTablas()
-    datosTablaPosicion = getDatosTablaPosicion()
-    insertarDatosTablaPosicion(datosTablaPosicion)
-    datosTablaTipo_juego = getDatosTablaTipo_juego()
-    insertarDatosTablaTipo_juego(datosTablaTipo_juego)
-    datosTablaStatus_juego = getDatosTablaStatus_juego()
-    insertarDatosTablaStatus_juego(datosTablaStatus_juego)
-    datosTablaTipo_turno = getDatosTablaTipo_turno()
-    insertarDatosTipo_turno(datosTablaTipo_turno)
-    datosTablaTipo_lanzamiento = getDatosTablaTipo_lanzamiento()
-    insertarDatosTipo_lanzamiento(datosTablaTipo_lanzamiento)
-    datosTablaEquipo = getDatosTablaEquipo()
-    insertarDatosEquipo(datosTablaEquipo)
+def getClavesJuegosUltimoDiaRegistrado():
+    query = """SELECT juego_id FROM juego
+                WHERE DATE_TRUNC('day', primer_lanzamiento) = (SELECT MAX(DATE_TRUNC('day', primer_lanzamiento)) 
+                FROM juego)"""
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        juegos = cursor.fetchall()
+    return set([juego[0] for juego in juegos])
 
 def getClavesJuegosTemporada(temporada):
     juegosTemporada = requests.get(urlBaseV1 + f'schedule?sportId=23&leageId=125&season={temporada}').content
     juegosTemporada = json.loads(juegosTemporada)
     juegosTemporada = juegosTemporada['dates']
 
+    ultimoPartidoRegistrado = getUltimoPartidoRegistrado().strftime('%Y-%m-%d')
     diaActual = datetime.now().strftime('%Y-%m-%d')
+    clavesJuegosUltimoDiaRegistrado = getClavesJuegosUltimoDiaRegistrado()
         
     clavesJuegosTemporada = []
     for dia in juegosTemporada:
+        if dia['date'] < ultimoPartidoRegistrado:
+            continue
         if dia['date'] >= diaActual:
             break
         for juego in dia['games']:
@@ -249,6 +107,9 @@ def getClavesJuegosTemporada(temporada):
             visitante_id = juego['teams']['away']['team']['id']
             juego_id = juego['gamePk']
             codedGameState = juego['status']['codedGameState']
+
+            if juego_id in clavesJuegosUltimoDiaRegistrado:
+                continue
 
             if (local_id not in equiposRegistrados) or (visitante_id not in equiposRegistrados):
                 continue
@@ -499,22 +360,20 @@ def procesarTemporada(temporada, turno_id):
         if datosJuegoRaw is None:
             continue
         #! Bloque comentado pq ya esta en la base
-        #datosTablaJuego = getDatosTablaJuego(datosJuegoRaw)
-        #FkTablaJuego = {
-        #    'estadio_id': datosTablaJuego['estadio_id'],
-        #    'umpire_home_id': datosTablaJuego['umpire_home_id'],
-        #    'umpire_1b_id': datosTablaJuego['umpire_1b_id'],
-        #    'umpire_2b_id': datosTablaJuego['umpire_2b_id'],
-        #    'umpire_3b_id': datosTablaJuego['umpire_3b_id']
-        #}
-        #validarFkTablaJuego(FkTablaJuego, datosJuegoRaw)
-        #insertDatosTablaJuego(datosTablaJuego)
-        #datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
-        #insertarDatosTablaJugador(datosTablaJugador)
+        datosTablaJuego = getDatosTablaJuego(datosJuegoRaw)
+        FkTablaJuego = {
+            'estadio_id': datosTablaJuego['estadio_id'],
+            'umpire_home_id': datosTablaJuego['umpire_home_id'],
+            'umpire_1b_id': datosTablaJuego['umpire_1b_id'],
+            'umpire_2b_id': datosTablaJuego['umpire_2b_id'],
+            'umpire_3b_id': datosTablaJuego['umpire_3b_id']
+        }
+        validarFkTablaJuego(FkTablaJuego, datosJuegoRaw)
+        insertDatosTablaJuego(datosTablaJuego)
+        datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
+        insertarDatosTablaJugador(datosTablaJugador)
     
 def main():
-    prepararBaseDatos()
-
     temporadas = [2025] #! Esto solo es para las pruebas
     temporadas = list(range(2021, 2026)) 
     turno_id = 0
