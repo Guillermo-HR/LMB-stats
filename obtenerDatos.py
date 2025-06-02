@@ -61,11 +61,224 @@ def getEquiposRegistrados():
         equipos = cursor.fetchall()
     return set([equipo[0] for equipo in equipos])
 
+def getTurno_idActual():
+    query = """SELECT MAX(turno_id) 
+                FROM turno"""
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query)
+        turno_id = cursor.fetchone()[0]
+    if turno_id is None:
+        turno_id = 0
+    return turno_id
+
 jugadoresRegistrados = getJugadoresRegistrados() # Para evitar busquedas en la base para validar cada jugador
 umpiresRegistrados = getUmpiresRegistrados() # Para evitar busquedas en la base para validar cada umpire
 estadiosRegistrados = getEstadiosRegistrados() # Para evitar busquedas en la base para validar cada estadio
 equiposRegistrados = getEquiposRegistrados() # Para filtrar solo los juegos de los equipos de la liga
 
+turno_id = getTurno_idActual()
+
+def agregarDatosTablaPosicion():
+    datosPosicionesRaw = requests.get(urlBaseV1 + 'positions').content
+    datosPosicionesRaw = json.loads(datosPosicionesRaw)
+    
+    posiciones = {'posicion_id': [], 'descripcion': []}
+    for posicion in datosPosicionesRaw:
+        try:
+            indice_posicion_id = posiciones['posicion_id'].index(posicion['code'])
+            posiciones['descripcion'][indice_posicion_id] += f'/{posicion["fullName"]}'
+        except ValueError:
+            posiciones['posicion_id'].append(posicion['code'])
+            posiciones['descripcion'].append(posicion['fullName'])
+    
+    schema_df_posiciones = {
+        'posicion_id': pl.String,
+        'descripcion': pl.String,
+    }
+
+    df = pl.DataFrame(posiciones, schema=schema_df_posiciones)
+    df.write_database(
+        table_name='posicion',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def agregarDatosTablaTipo_juego():
+    datosTipo_juegoRaw = requests.get(urlBaseV1 + 'gameTypes').content
+    datosTipo_juegoRaw = json.loads(datosTipo_juegoRaw)
+    
+    tipo_juegos = {'tipo_juego_id': [], 'descripcion': []}
+    for tipo_juego in datosTipo_juegoRaw:
+        try:
+            indice_tipo_juego_id = tipo_juegos['tipo_juego_id'].index(tipo_juego['id'])
+            tipo_juegos['descripcion'][indice_tipo_juego_id] += f'/{tipo_juego["description"]}'
+        except ValueError:
+            tipo_juegos['tipo_juego_id'].append(tipo_juego['id'])
+            tipo_juegos['descripcion'].append(tipo_juego['description'])
+
+    schema_df_tipo_juegos = {
+        'tipo_juego_id': pl.String,
+        'descripcion': pl.String,
+    }
+
+    df = pl.DataFrame(tipo_juegos, schema=schema_df_tipo_juegos)
+    df.write_database(
+        table_name='tipo_juego',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def agregarDatosTablaStatus_juego():
+    datosStatus_juegoRaw = requests.get(urlBaseV1 + 'gameStatus').content
+    datosStatus_juegoRaw = json.loads(datosStatus_juegoRaw)
+    
+    status_juegos = {'status_juego_id': [], 'descripcion': []}
+    for status_juego in datosStatus_juegoRaw:
+        try:
+            indice_status_juego_id = status_juegos['status_juego_id'].index(status_juego['statusCode'])
+            status_juegos['descripcion'][indice_status_juego_id] += f'/{status_juego["detailedState"]}'
+        except ValueError:
+            status_juegos['status_juego_id'].append(status_juego['statusCode'])
+            status_juegos['descripcion'].append(status_juego['detailedState'])
+    
+    schema_df_status_juegos = {
+        'status_juego_id': pl.String,
+        'descripcion': pl.String,
+    }
+
+    df = pl.DataFrame(status_juegos, schema=schema_df_status_juegos)
+    df.write_database(
+        table_name='status_juego',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def agregarDatosTablaTipo_turno():
+    datosTipo_turnoRaw = requests.get(urlBaseV1 + 'eventTypes').content
+    datosTipo_turnoRaw = json.loads(datosTipo_turnoRaw)
+    
+    tipo_turnos = {'tipo_turno_id': [], 'descripcion': []}
+    for tipo_turno in datosTipo_turnoRaw:
+        try:
+            indice_tipo_turno_id = tipo_turnos['tipo_turno_id'].index(tipo_turno['code'])
+            tipo_turnos['descripcion'][indice_tipo_turno_id] += f'/{tipo_turno["description"]}'
+        except ValueError:
+            tipo_turnos['tipo_turno_id'].append(tipo_turno['code'])
+            tipo_turnos['descripcion'].append(tipo_turno['description'])
+    
+    schema_df_tipo_turno = {
+        'tipo_turno_id': pl.String,
+        'descripcion': pl.String,
+    }
+
+    df = pl.DataFrame(tipo_turnos, schema=schema_df_tipo_turno)
+    df.write_database(
+        table_name='tipo_turno',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def agregarDatosTipo_lanzamiento():
+    datosTipo_lanzamientoRaw = requests.get(urlBaseV1 + 'pitchCodes').content
+    datosTipo_lanzamientoRaw = json.loads(datosTipo_lanzamientoRaw)
+    
+    tipo_lanzamientos = {'tipo_lanzamiento_id': [], 'descripcion': []}
+    for tipo_lanzamiento in datosTipo_lanzamientoRaw:
+        try:
+            indice_tipo_lanzamiento_id = tipo_lanzamientos['tipo_lanzamiento_id'].index(tipo_lanzamiento['code'])
+            tipo_lanzamientos['descripcion'][indice_tipo_lanzamiento_id] += f'/{tipo_lanzamiento["description"]}'
+        except ValueError:
+            tipo_lanzamientos['tipo_lanzamiento_id'].append(tipo_lanzamiento['code'])
+            tipo_lanzamientos['descripcion'].append(tipo_lanzamiento['description'])
+    
+    schema_df_tipo_lanzamiento = {
+        'tipo_lanzamiento_id': pl.String,
+        'descripcion': pl.String,
+    }
+
+    df = pl.DataFrame(tipo_lanzamientos, schema=schema_df_tipo_lanzamiento)
+
+    df.write_database(
+        table_name='tipo_lanzamiento',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def agregarDatosEquipo():
+    datosEquipoRaw = requests.get(urlBaseV1 + 'teams?leagueId=125').content
+    datosEquipoRaw = json.loads(datosEquipoRaw)['teams']
+    
+    equipos = {'equipo_id': [], 'nombre': [], 'abreviacion': [], 'zona': []}
+    for equipo in datosEquipoRaw:
+        equipo_id = int(equipo['id'])
+        nombre = str(equipo['name'])
+        abreviacion = str(equipo['abbreviation'])
+        zona = str(equipo['division']['name'][15:])
+
+        equipos['equipo_id'].append(equipo_id)
+        equipos['nombre'].append(nombre)
+        equipos['abreviacion'].append(abreviacion)
+        equipos['zona'].append(zona)
+
+    # Agregar datos de Mariaches de Guadalajara (no aparence en la API)Add commentMore actions
+    equipos['equipo_id'].append(5566)
+    equipos['nombre'].append('Mariachis de Guadalajara')
+    equipos['abreviacion'].append('GDL')
+    equipos['zona'].append('Norte')
+    
+    schema_df_equipo = {
+        'equipo_id': pl.Int64,
+        'nombre': pl.String,
+        'abreviacion': pl.String,
+        'zona': pl.String
+    }
+
+    df = pl.DataFrame(equipos, schema=schema_df_equipo)
+
+    df.write_database(
+        table_name='equipo',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def validarTablasIndependientes():
+    query = """SELECT COUNT(*)=0
+               FROM {}"""
+    
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        
+        # Verificar si la tabla posicion esta vacia
+        cursor.execute(query.format('posicion'))
+        if cursor.fetchone()[0]:
+            agregarDatosTablaPosicion()
+
+        # Verificar si la tabla tipo_juego esta vacia
+        cursor.execute(query.format('tipo_juego'))
+        if cursor.fetchone()[0]:
+            agregarDatosTablaTipo_juego()
+        
+        # Verificar si la tabla status_juego esta vacia
+        cursor.execute(query.format('status_juego'))
+        if cursor.fetchone()[0]:
+            agregarDatosTablaStatus_juego()
+        
+        # Verificar si la tabla tipo_turno esta vacia
+        cursor.execute(query.format('tipo_turno'))
+        if cursor.fetchone()[0]:
+            agregarDatosTablaTipo_turno()
+
+        # Verificar si la tabla tipo_lanzamiento esta vacia
+        cursor.execute(query.format('tipo_lanzamiento'))
+        if cursor.fetchone()[0]:
+            agregarDatosTipo_lanzamiento()
+
+        # Verificar si la tabla equipo esta vacia
+        cursor.execute(query.format('equipo'))
+        if cursor.fetchone()[0]:
+            agregarDatosEquipo()
+    
 def getUltimoPartidoRegistrado():
     query = """SELECT (MAX(DATE_TRUNC('day',primer_lanzamiento)::date ))
                 FROM juego"""
@@ -352,7 +565,220 @@ def insertarDatosTablaJugador(jugadoresFaltantes):
         if_table_exists='append'
     )
 
-def procesarTemporada(temporada, turno_id):
+def insertarDatosTablaTurno(datosTablaTurno):
+    if datosTablaTurno.is_empty():
+        return
+    datosTablaTurno.write_database(
+        table_name='turno',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def insertarDatosTablaLanzamiento(datosTablaLanzamiento):
+    if datosTablaLanzamiento.is_empty():
+        return
+    datosTablaLanzamiento.write_database(
+        table_name='lanzamiento',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def procesarTurnos(datosJuegoRaw):
+    bateadores_local = set()
+    pitchers_local = []
+    bateadores_visitante = set()
+    pitchers_visitante = []
+
+    juego_id = int(datosJuegoRaw['gameData']['game']['pk'])
+
+    datosTablaTurno = {
+        'turno_id': [],
+        'at_bat_descripcion': [],
+        'entrada': [],
+        'es_parte_alta': [],
+        'cuenta_outs': [],
+        'carreras_anotadas': [],
+        'juego_id': [],
+        'bateador_id': [],
+        'pitcher_id': [],
+        'tipo_turno_id': []
+    }
+    datosTablaLanzamiento = {
+        'turno_id': [],
+        'numero_lanzamiento': [],
+        'es_jugada': [],
+        'es_bola': [],
+        'es_strike': [],
+        'es_foul': [],
+        'es_out': [],
+        'cuenta_bolas': [],
+        'cuenta_strikes': [],
+        'x': [],
+        'y': [],
+        'tipo_lanzamiento_id': []
+    }
+    
+    contador_outs = 0
+    contador_carreras_local = 0
+    contador_carreras_visitante = 0
+
+    for jugada in datosJuegoRaw['liveData']['plays']['allPlays']:
+        # Procesar turno
+        global turno_id
+        turno_id += 1
+        at_bat_descripcion = str(jugada['result']['description'])
+        entrada = int(jugada['about']['inning'])
+        es_parte_alta = bool(jugada['about']['isTopInning'])
+        cuenta_outs = contador_outs
+        contador_outs = int(jugada['count']['outs'])
+        if cuenta_outs == 3:
+            contador_outs = 0
+        marcador_local = int(jugada['result']['homeScore'])
+        marcador_visitante = int(jugada['result']['awayScore'])
+        if es_parte_alta:
+            carreras_anotadas = marcador_visitante - contador_carreras_visitante
+            contador_carreras_visitante = marcador_visitante
+        else:
+            carreras_anotadas = marcador_local - contador_carreras_local
+            contador_carreras_local = marcador_local
+        
+        bateador_id = int(jugada['matchup']['batter']['id'])
+        pitcher_id = int(jugada['matchup']['pitcher']['id'])
+        tipo_turno_id = str(jugada['result']['eventType'])
+
+        datosTablaTurno['turno_id'].append(turno_id)
+        datosTablaTurno['at_bat_descripcion'].append(at_bat_descripcion)
+        datosTablaTurno['entrada'].append(entrada)
+        datosTablaTurno['es_parte_alta'].append(es_parte_alta)
+        datosTablaTurno['cuenta_outs'].append(cuenta_outs)
+        datosTablaTurno['carreras_anotadas'].append(carreras_anotadas)
+        datosTablaTurno['juego_id'].append(juego_id)
+
+        datosTablaTurno['bateador_id'].append(bateador_id)
+        datosTablaTurno['pitcher_id'].append(pitcher_id)
+        datosTablaTurno['tipo_turno_id'].append(tipo_turno_id)
+
+        if es_parte_alta and bateador_id not in bateadores_visitante:
+            bateadores_visitante.add(bateador_id)
+        elif not es_parte_alta and bateador_id not in bateadores_local:
+            bateadores_local.add(bateador_id)
+
+        if es_parte_alta and pitcher_id not in pitchers_local:
+            pitchers_local.append(pitcher_id)
+        elif not es_parte_alta and pitcher_id not in pitchers_visitante:
+            pitchers_visitante.append(pitcher_id)
+
+        # Procesar lanzamiento
+        contador_bolas = 0
+        contador_strikes = 0
+        numero_lanzamiento = 0
+        for lanzamiento in jugada['playEvents']:
+            if 'eventType' in lanzamiento['details']:
+                continue
+
+            numero_lanzamiento += 1
+            if 'isInPlay' in lanzamiento['details']:
+                es_jugada = bool(lanzamiento['details']['isInPlay'])
+            else:
+                es_jugada = False
+            if 'isBall' in lanzamiento['details']:
+                es_bola = bool(lanzamiento['details']['isBall'])
+            else:
+                es_bola = False
+            if 'isStrike' in lanzamiento['details']:
+                es_strike = bool(lanzamiento['details']['isStrike'])
+            else:
+                es_strike = False
+            es_out = bool(lanzamiento['details']['isOut'])
+            if contador_strikes == 2 and es_strike and not es_out:
+                es_foul = True
+            else:
+                es_foul = False
+            cuenta_bolas = contador_bolas
+            contador_bolas = int(lanzamiento['count']['balls'])
+            cuenta_strikes = contador_strikes
+            contador_strikes = int(lanzamiento['count']['strikes'])
+            if 'pitchData' in lanzamiento and 'x' in lanzamiento['pitchData']['coordinates'] and 'y' in lanzamiento['pitchData']['coordinates']:
+                x = -0.021 * (lanzamiento['pitchData']['coordinates']['x']) + 2.298
+                y = -0.021 * (lanzamiento['pitchData']['coordinates']['y']) + 5.803
+            else:
+                x = None
+                y = None
+                print(f'lanzamiento: {turno_id}-{numero_lanzamiento} -> faltan datos de coordenadas')
+            tipo_lanzamiento_id = str(lanzamiento['details']['code'])
+
+            datosTablaLanzamiento['turno_id'].append(turno_id)
+            datosTablaLanzamiento['numero_lanzamiento'].append(numero_lanzamiento)
+            datosTablaLanzamiento['es_jugada'].append(es_jugada)
+            datosTablaLanzamiento['es_bola'].append(es_bola)
+            datosTablaLanzamiento['es_strike'].append(es_strike)
+            datosTablaLanzamiento['es_foul'].append(es_foul)
+            datosTablaLanzamiento['es_out'].append(es_out)
+            datosTablaLanzamiento['cuenta_bolas'].append(cuenta_bolas)
+            datosTablaLanzamiento['cuenta_strikes'].append(cuenta_strikes)
+            datosTablaLanzamiento['x'].append(x)
+            datosTablaLanzamiento['y'].append(y)
+            datosTablaLanzamiento['tipo_lanzamiento_id'].append(tipo_lanzamiento_id)
+            
+    schema_df_turno = {
+        'turno_id': pl.Int64,
+        'at_bat_descripcion': pl.String,
+        'entrada': pl.Int64,
+        'es_parte_alta': pl.Boolean,
+        'cuenta_outs': pl.Int64,
+        'carreras_anotadas': pl.Int64,
+        'juego_id': pl.Int64,
+        'bateador_id': pl.Int64,
+        'pitcher_id': pl.Int64,
+        'tipo_turno_id': pl.String
+    }
+    insertarDatosTablaTurno(pl.DataFrame(datosTablaTurno, schema=schema_df_turno))
+
+    schema_df_lanzamiento = {
+        'turno_id': pl.Int64,
+        'numero_lanzamiento': pl.Int64,
+        'es_jugada': pl.Boolean,
+        'es_bola': pl.Boolean,
+        'es_strike': pl.Boolean,
+        'es_foul': pl.Boolean,
+        'es_out': pl.Boolean,
+        'cuenta_bolas': pl.Int64,
+        'cuenta_strikes': pl.Int64,
+        'x': pl.Float32,
+        'y': pl.Float32,
+        'tipo_lanzamiento_id': pl.String
+    }
+    insertarDatosTablaLanzamiento(pl.DataFrame(datosTablaLanzamiento, schema=schema_df_lanzamiento))
+    
+    return [bateadores_visitante, bateadores_local], [pitchers_visitante, pitchers_local]
+    
+#! En desarrollo    
+def getDatosTablaBateador_juego(bateadores, datosJuegoRaw):
+    pass
+
+def insertarDatosTablaBateador_juego(datosTablaBateador_juego):
+    if datosTablaBateador_juego.is_empty():
+        return
+    datosTablaBateador_juego.write_database(
+        table_name='juego_bateador',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+#! En desarrollo
+def getDatosTablaPitcher_juego(pitchers, datosJuegoRaw):
+    pass
+
+def insertarDatosTablaPitcher_juego(datosTablaPitcher_juego):
+    if datosTablaPitcher_juego.is_empty():
+        return
+    datosTablaPitcher_juego.write_database(
+        table_name='juego_pitcher',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def procesarTemporada(temporada):
     clavesJuegosTemporadaorada = getClavesJuegosTemporada(temporada)
     for juego_id in clavesJuegosTemporadaorada:
         datosJuegoRaw = getDatosJuegoRaw(juego_id)
@@ -370,14 +796,31 @@ def procesarTemporada(temporada, turno_id):
         insertDatosTablaJuego(datosTablaJuego)
         datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
         insertarDatosTablaJugador(datosTablaJugador)
+        bateadores, pitchers = procesarTurnos(datosJuegoRaw)
+        #datosTablaBateador_juego = getDatosTablaBateador_juego(bateadores, datosJuegoRaw)
+        #insertarDatosTablaBateador_juego(datosTablaBateador_juego)
+        #datosTablaPitcher_juego = getDatosTablaPitcher_juego(pitchers, datosJuegoRaw)
+        #insertarDatosTablaPitcher_juego(datosTablaPitcher_juego)
     
 def main():
     temporadas = [2025] #! Esto solo es para las pruebas
     temporadas = list(range(2021, 2026)) 
-    turno_id = 0
+
+    validarTablasIndependientes()
 
     for temporada in temporadas:
-        procesarTemporada(temporada, turno_id)
+        procesarTemporada(temporada)
+
+def limpiarTablas():
+    query = """DELETE FROM {}"""
+    tablas = ['juego_pitcher', 'lanzamiento', 'tipo_lanzamiento', 'turno', 'tipo_turno', 'jugador', 'posicion', 'juego',
+              'equipo', 'tipo_juego', 'estadio', 'status_juego', 'umpire']
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        for tabla in tablas:
+            cursor.execute(query.format(tabla))
+        conn.commit()
 
 if __name__ == '__main__':
+    limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
