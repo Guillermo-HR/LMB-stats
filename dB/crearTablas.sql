@@ -149,11 +149,13 @@ CREATE TABLE IF NOT EXISTS juego_pitcher
     pitcher_id    INTEGER NOT NULL ,
     es_local BOOLEAN NOT NULL ,
     es_abridor BOOLEAN NOT NULL ,
-    es_relevista BOOLEAN NOT NULL ,
-    es_cerrador BOOLEAN NOT NULL ,
     es_ganador BOOLEAN NOT NULL ,
     es_perdedor BOOLEAN NOT NULL ,
+    oportunidad_salvamento BOOLEAN NOT NULL ,
     es_salvamento BOOLEAN NOT NULL ,
+    at_bats SMALLINT NOT NULL ,
+    carreras SMALLINT NOT NULL ,
+    carreras_limpias SMALLINT NOT NULL ,
 
     PRIMARY KEY (juego_id, pitcher_id),
     CONSTRAINT fk_juego_pitcher_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id),
@@ -171,7 +173,7 @@ CREATE TABLE IF NOT EXISTS turno
     entrada        SMALLINT NOT NULL ,
     es_parte_alta      BOOLEAN NOT NULL ,
     cuenta_outs SMALLINT NOT NULL ,
-    carreras SMALLINT NOT NULL ,
+    carreras_anotadas SMALLINT NOT NULL ,
 
     juego_id      INTEGER NOT NULL ,
     bateador_id   INTEGER NOT NULL ,
@@ -206,8 +208,8 @@ CREATE TABLE IF NOT EXISTS lanzamiento
     es_out BOOLEAN NOT NULL ,
     cuenta_bolas SMALLINT NOT NULL ,
     cuenta_strikes SMALLINT NOT NULL ,
-    x REAL NOT NULL ,
-    y REAL NOT NULL ,
+    x REAL,
+    y REAL,
 
     tipo_lanzamiento_id TEXT NOT NULL ,
     
