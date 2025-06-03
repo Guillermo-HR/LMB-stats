@@ -145,21 +145,67 @@ CREATE INDEX idx_juego_visitante_id ON juego (visitante_id);
 DROP TABLE IF EXISTS juego_pitcher CASCADE;
 CREATE TABLE IF NOT EXISTS juego_pitcher
 (
-    juego_id      INTEGER NOT NULL ,
-    pitcher_id    INTEGER NOT NULL ,
-    es_local BOOLEAN NOT NULL ,
-    es_abridor BOOLEAN NOT NULL ,
-    es_ganador BOOLEAN NOT NULL ,
-    es_perdedor BOOLEAN NOT NULL ,
-    oportunidad_salvamento BOOLEAN NOT NULL ,
-    es_salvamento BOOLEAN NOT NULL ,
-    at_bats SMALLINT NOT NULL ,
-    carreras SMALLINT NOT NULL ,
-    carreras_limpias SMALLINT NOT NULL ,
+    juego_id               INDEX NOT NULL,
+    pitcher_id             INDEX NOT NULL,
+    es_local               BOOLEAN NOT NULL,
+    es_abridor             BOOLEAN NOT NULL,
+    es_ganador             BOOLEAN NOT NULL,
+    es_perdedor            BOOLEAN NOT NULL,
+    oportunidad_salvamento BOOLEAN NOT NULL,
+    es_salvamento          BOOLEAN NOT NULL,
+    atBats                 SMALLINT NOT NULL,
+    strikeOuts             SMALLINT NOT NULL,
+    outs                   SMALLINT NOT NULL,
+    balls                  SMALLINT NOT NULL,
+    strikes                SMALLINT NOT NULL,
+    singles                SMALLINT NOT NULL,
+    doubles                SMALLINT NOT NULL,
+    triples                SMALLINT NOT NULL,
+    homeRuns               SMALLINT NOT NULL,
+    baseOnBalls            SMALLINT NOT NULL,
+    intentionalWalks       SMALLINT NOT NULL,
+    hitByPitch             SMALLINT NOT NULL,
+    wildPitches            SMALLINT NOT NULL,
+    balks                  SMALLINT NOT NULL,
+    runs                   SMALLINT NOT NULL,
+    earnedRuns             SMALLINT NOT NULL,
 
     PRIMARY KEY (juego_id, pitcher_id),
     CONSTRAINT fk_juego_pitcher_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id),
     CONSTRAINT fk_juego_pitcher_pitcher_id FOREIGN KEY (pitcher_id) REFERENCES jugador(jugador_id)
+);
+
+DROP TABLE IF EXISTS juego_bateador CASCADE;   
+CREATE TABLE IF NOT EXISTS juego_bateador
+(
+    juego_id             INTEGER NOT NULL,
+    bateador_id          INTEGER NOT NULL,
+    es_local             BOOLEAN NOT NULL,
+    atBats               SMALLINT NOT NULL,
+    airOuts              SMALLINT NOT NULL,
+    flyOuts              SMALLINT NOT NULL,
+    groundOuts           SMALLINT NOT NULL,
+    lineOuts             SMALLINT NOT NULL,
+    popOuts              SMALLINT NOT NULL,
+    strikeOuts           SMALLINT NOT NULL,
+    groundIntoDoublePlay SMALLINT NOT NULL,
+    groundIntoTriplePlay SMALLINT NOT NULL,
+    leftOnBase           SMALLINT NOT NULL,
+    sacBunts             SMALLINT NOT NULL,
+    sacFlies             SMALLINT NOT NULL,
+    singles              SMALLINT NOT NULL,
+    doubles              SMALLINT NOT NULL,
+    triples              SMALLINT NOT NULL,
+    homeRuns             SMALLINT NOT NULL,
+    baseOnBalls          SMALLINT NOT NULL,
+    intentionalWalks     SMALLINT NOT NULL,
+    hitByPitch           SMALLINT NOT NULL,
+    runs                 SMALLINT NOT NULL,
+    rbi                  SMALLINT NOT NULL,
+    
+    PRIMARY KEY (juego_id, bateador_id),
+    CONSTRAINT fk_juego_bateador_bateador_id FOREIGN KEY (bateador_id) REFERENCES jugador(jugador_id),
+    CONSTRAINT fk_juego_bateador_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id)
 );
 
 DROP INDEX IF EXISTS idx_juego_pitcher_pitcher_id;
@@ -217,3 +263,6 @@ CREATE TABLE IF NOT EXISTS lanzamiento
     CONSTRAINT fk_jugada_turno_id FOREIGN KEY (turno_id) REFERENCES turno(turno_id),
     CONSTRAINT fk_jugada_tipo_lanzamiento_id FOREIGN KEY (tipo_lanzamiento_id) REFERENCES tipo_lanzamiento(tipo_lanzamiento_id)
 );
+
+DROP INDEX IF EXISTS idx_lanzamiento_tipo_lanzamiento_id;
+CREATE INDEX idx_lanzamiento_tipo_lanzamiento_id ON lanzamiento (tipo_lanzamiento_id);
