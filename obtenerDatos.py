@@ -23,7 +23,7 @@ connection = {
     'user': user,
     'password': password
     }
-connection_uri = f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}'
+connection_url = f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}'
 
 # URLs de la API de MLB
 urlBaseV1 = f'https://statsapi.mlb.com/api/v1/'
@@ -100,7 +100,7 @@ def agregarDatosTablaPosicion():
     df = pl.DataFrame(posiciones, schema=schema_df_posiciones)
     df.write_database(
         table_name='posicion',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -125,7 +125,7 @@ def agregarDatosTablaTipo_juego():
     df = pl.DataFrame(tipo_juegos, schema=schema_df_tipo_juegos)
     df.write_database(
         table_name='tipo_juego',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -150,7 +150,7 @@ def agregarDatosTablaStatus_juego():
     df = pl.DataFrame(status_juegos, schema=schema_df_status_juegos)
     df.write_database(
         table_name='status_juego',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -175,7 +175,7 @@ def agregarDatosTablaTipo_turno():
     df = pl.DataFrame(tipo_turnos, schema=schema_df_tipo_turno)
     df.write_database(
         table_name='tipo_turno',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -201,7 +201,7 @@ def agregarDatosTipo_lanzamiento():
 
     df.write_database(
         table_name='tipo_lanzamiento',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -238,7 +238,7 @@ def agregarDatosEquipo():
 
     df.write_database(
         table_name='equipo',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -561,7 +561,7 @@ def insertarDatosTablaJugador(jugadoresFaltantes):
         return
     jugadoresFaltantes.write_database(
         table_name='jugador',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -570,7 +570,7 @@ def insertarDatosTablaTurno(datosTablaTurno):
         return
     datosTablaTurno.write_database(
         table_name='turno',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -579,7 +579,7 @@ def insertarDatosTablaLanzamiento(datosTablaLanzamiento):
         return
     datosTablaLanzamiento.write_database(
         table_name='lanzamiento',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -877,7 +877,7 @@ def insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher):
         return
     datosTablaJuego_pitcher.write_database(
         table_name='juego_pitcher',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
@@ -999,7 +999,7 @@ def insertarDatosTablaJuego_bateador(datosTablaJuego_bateador):
         return
     datosTablaJuego_bateador.write_database(
         table_name='juego_bateador',
-        connection=connection_uri,
+        connection=connection_url,
         if_table_exists='append'
     )
 
