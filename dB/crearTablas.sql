@@ -153,25 +153,25 @@ CREATE TABLE IF NOT EXISTS juego_pitcher
     es_perdedor            BOOLEAN NOT NULL,
     oportunidad_salvamento BOOLEAN NOT NULL,
     es_salvamento          BOOLEAN NOT NULL,
-    atBats                 SMALLINT NOT NULL,
-    strikeOuts             SMALLINT NOT NULL,
+    at_bats                 SMALLINT NOT NULL,
+    strike_outs             SMALLINT NOT NULL,
     outs                   SMALLINT NOT NULL,
     balls                  SMALLINT NOT NULL,
     strikes                SMALLINT NOT NULL,
     singles                SMALLINT NOT NULL,
     doubles                SMALLINT NOT NULL,
     triples                SMALLINT NOT NULL,
-    homeRuns               SMALLINT NOT NULL,
-    baseOnBalls            SMALLINT NOT NULL,
-    intentionalWalks       SMALLINT NOT NULL,
-    hitByPitch             SMALLINT NOT NULL,
-    wildPitches            SMALLINT NOT NULL,
+    home_runs               SMALLINT NOT NULL,
+    base_on_balls            SMALLINT NOT NULL,
+    intentional_walks       SMALLINT NOT NULL,
+    hit_by_pitch             SMALLINT NOT NULL,
+    wild_pitches            SMALLINT NOT NULL,
     balks                  SMALLINT NOT NULL,
     runs                   SMALLINT NOT NULL,
-    earnedRuns             SMALLINT NOT NULL,
+    earned_runs             SMALLINT NOT NULL,
 
     PRIMARY KEY (juego_id, pitcher_id),
-    CONSTRAINT fk_juego_pitcher_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id),
+    CONSTRAINT fk_juego_pitcher_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id) ON DELETE CASCADE,
     CONSTRAINT fk_juego_pitcher_pitcher_id FOREIGN KEY (pitcher_id) REFERENCES jugador(jugador_id)
 );
 
@@ -181,31 +181,31 @@ CREATE TABLE IF NOT EXISTS juego_bateador
     juego_id             INTEGER NOT NULL,
     bateador_id          INTEGER NOT NULL,
     es_local             BOOLEAN NOT NULL,
-    atBats               SMALLINT NOT NULL,
-    airOuts              SMALLINT NOT NULL,
-    flyOuts              SMALLINT NOT NULL,
-    groundOuts           SMALLINT NOT NULL,
-    lineOuts             SMALLINT NOT NULL,
-    popOuts              SMALLINT NOT NULL,
-    strikeOuts           SMALLINT NOT NULL,
-    groundIntoDoublePlay SMALLINT NOT NULL,
-    groundIntoTriplePlay SMALLINT NOT NULL,
-    leftOnBase           SMALLINT NOT NULL,
-    sacBunts             SMALLINT NOT NULL,
-    sacFlies             SMALLINT NOT NULL,
+    at_bats               SMALLINT NOT NULL,
+    air_outs              SMALLINT NOT NULL,
+    fly_outs              SMALLINT NOT NULL,
+    ground_outs           SMALLINT NOT NULL,
+    line_outs             SMALLINT NOT NULL,
+    pop_outs              SMALLINT NOT NULL,
+    strike_outs           SMALLINT NOT NULL,
+    ground_into_double_play SMALLINT NOT NULL,
+    ground_into_triple_play SMALLINT NOT NULL,
+    left_on_base           SMALLINT NOT NULL,
+    sac_bunts             SMALLINT NOT NULL,
+    sac_flies             SMALLINT NOT NULL,
     singles              SMALLINT NOT NULL,
     doubles              SMALLINT NOT NULL,
     triples              SMALLINT NOT NULL,
-    homeRuns             SMALLINT NOT NULL,
-    baseOnBalls          SMALLINT NOT NULL,
-    intentionalWalks     SMALLINT NOT NULL,
-    hitByPitch           SMALLINT NOT NULL,
+    home_runs             SMALLINT NOT NULL,
+    base_on_balls          SMALLINT NOT NULL,
+    intentional_walks     SMALLINT NOT NULL,
+    hit_by_pitch           SMALLINT NOT NULL,
     runs                 SMALLINT NOT NULL,
     rbi                  SMALLINT NOT NULL,
     
     PRIMARY KEY (juego_id, bateador_id),
     CONSTRAINT fk_juego_bateador_bateador_id FOREIGN KEY (bateador_id) REFERENCES jugador(jugador_id),
-    CONSTRAINT fk_juego_bateador_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id)
+    CONSTRAINT fk_juego_bateador_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id) ON DELETE CASCADE
 );
 
 DROP INDEX IF EXISTS idx_juego_pitcher_pitcher_id;
@@ -227,7 +227,7 @@ CREATE TABLE IF NOT EXISTS turno
     tipo_turno_id TEXT,
 
     PRIMARY KEY (turno_id),
-    CONSTRAINT fk_turno_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id),
+    CONSTRAINT fk_turno_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id) ON DELETE CASCADE,
     CONSTRAINT fk_turno_bateador_id FOREIGN KEY (bateador_id) REFERENCES jugador(jugador_id),
     CONSTRAINT fk_turno_pitcher_id FOREIGN KEY (pitcher_id) REFERENCES jugador(jugador_id),
     CONSTRAINT fk_turno_tipo_turno_id FOREIGN KEY (tipo_turno_id) REFERENCES tipo_turno(tipo_turno_id)
@@ -260,7 +260,7 @@ CREATE TABLE IF NOT EXISTS lanzamiento
     tipo_lanzamiento_id TEXT NOT NULL ,
     
     PRIMARY KEY (turno_id, numero_lanzamiento),
-    CONSTRAINT fk_jugada_turno_id FOREIGN KEY (turno_id) REFERENCES turno(turno_id),
+    CONSTRAINT fk_jugada_turno_id FOREIGN KEY (turno_id) REFERENCES turno(turno_id) ON DELETE CASCADE,
     CONSTRAINT fk_jugada_tipo_lanzamiento_id FOREIGN KEY (tipo_lanzamiento_id) REFERENCES tipo_lanzamiento(tipo_lanzamiento_id)
 );
 
