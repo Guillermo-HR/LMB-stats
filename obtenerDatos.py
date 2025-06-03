@@ -584,9 +584,7 @@ def insertarDatosTablaLanzamiento(datosTablaLanzamiento):
     )
 
 def procesarTurnos(datosJuegoRaw):
-    bateadores_local = set()
     pitchers_local = []
-    bateadores_visitante = set()
     pitchers_visitante = []
 
     juego_id = int(datosJuegoRaw['gameData']['game']['pk'])
@@ -623,6 +621,9 @@ def procesarTurnos(datosJuegoRaw):
     contador_carreras_visitante = 0
 
     for jugada in datosJuegoRaw['liveData']['plays']['allPlays']:
+        # Validar que tenga informacion
+        if 'eventType' not in jugada['result']:
+            continue
         # Procesar turno
         global turno_id
         turno_id += 1
@@ -657,11 +658,6 @@ def procesarTurnos(datosJuegoRaw):
         datosTablaTurno['bateador_id'].append(bateador_id)
         datosTablaTurno['pitcher_id'].append(pitcher_id)
         datosTablaTurno['tipo_turno_id'].append(tipo_turno_id)
-
-        if es_parte_alta and bateador_id not in bateadores_visitante:
-            bateadores_visitante.add(bateador_id)
-        elif not es_parte_alta and bateador_id not in bateadores_local:
-            bateadores_local.add(bateador_id)
 
         if es_parte_alta and pitcher_id not in pitchers_local:
             pitchers_local.append(pitcher_id)
@@ -750,24 +746,82 @@ def procesarTurnos(datosJuegoRaw):
     }
     insertarDatosTablaLanzamiento(pl.DataFrame(datosTablaLanzamiento, schema=schema_df_lanzamiento))
     
-    return [bateadores_visitante, bateadores_local], [pitchers_visitante, pitchers_local]
+    return pitchers_visitante, pitchers_local
     
-#! En desarrollo    
-def getDatosTablaBateador_juego(bateadores, datosJuegoRaw):
-    pass
+def getDatosTablaPitcher_juego(pitchers, datosJuegoRaw, es_local):
+    if es_local:
+        datosPitcherRaw = datosJuegoRaw['liveData']['boxscore']['teams']['home']['players']
+    else:
+        datosPitcherRaw = datosJuegoRaw['liveData']['boxscore']['teams']['away']['players']
+    
+    datosTablaPitcher_juego = {
+        'juego_id': [],
+        'pitcher_id': [],
+        'es_local': [],
+        'es_abridor': [],
+        'es_ganador': [],
+        'es_perdedor': [],
+        'oportunidad_salvamento': [],
+        'es_salvamento': [],
+        'at_bats': [],
+        'carreras': [],
+        'carreras_limpias': []
+    }
+    
+    juego_id = int(datosJuegoRaw['gameData']['game']['pk'])
+    for i, pitcher in enumerate(pitchers):
+        datosPitcher = datosPitcherRaw[f'ID{pitcher}']
+        pitcher_id = int(pitcher)
+        if i == 0:
+            es_abridor = True
+        else:
+            es_abridor = False
+        if datosPitcher['stats']['pitching']['wins'] == 1:
+            es_ganador = True
+        else:
+            es_ganador = False
+        if datosPitcher['stats']['pitching']['losses'] == 1:
+            es_perdedor = True
+        else:
+            es_perdedor = False
+        if datosPitcher['stats']['pitching']['saveOpportunities'] == 1:
+            oportunidad_salvamento = True
+        else:
+            oportunidad_salvamento = False
+        if datosPitcher['stats']['pitching']['saves'] == 1:
+            es_salvamento = True
+        else:
+            es_salvamento = False
+        at_bats = int(datosPitcher['stats']['pitching']['atBats'])
+        carreras = int(datosPitcher['stats']['pitching']['runs'])
+        carreras_limpias = int(datosPitcher['stats']['pitching']['earnedRuns'])
 
-def insertarDatosTablaBateador_juego(datosTablaBateador_juego):
-    if datosTablaBateador_juego.is_empty():
-        return
-    datosTablaBateador_juego.write_database(
-        table_name='juego_bateador',
-        connection=connection_uri,
-        if_table_exists='append'
-    )
+        datosTablaPitcher_juego['juego_id'].append(juego_id)
+        datosTablaPitcher_juego['pitcher_id'].append(pitcher_id)
+        datosTablaPitcher_juego['es_local'].append(es_local)
+        datosTablaPitcher_juego['es_abridor'].append(es_abridor)
+        datosTablaPitcher_juego['es_ganador'].append(es_ganador)
+        datosTablaPitcher_juego['es_perdedor'].append(es_perdedor)
+        datosTablaPitcher_juego['oportunidad_salvamento'].append(oportunidad_salvamento)
+        datosTablaPitcher_juego['es_salvamento'].append(es_salvamento)
+        datosTablaPitcher_juego['at_bats'].append(at_bats)
+        datosTablaPitcher_juego['carreras'].append(carreras)
+        datosTablaPitcher_juego['carreras_limpias'].append(carreras_limpias)
 
-#! En desarrollo
-def getDatosTablaPitcher_juego(pitchers, datosJuegoRaw):
-    pass
+    schema_df_pitcher_juego = {
+        'juego_id': pl.Int64,
+        'pitcher_id': pl.Int64,
+        'es_local': pl.Boolean,
+        'es_abridor': pl.Boolean,
+        'es_ganador': pl.Boolean,
+        'es_perdedor': pl.Boolean,
+        'oportunidad_salvamento': pl.Boolean,
+        'es_salvamento': pl.Boolean,
+        'at_bats': pl.Int64,
+        'carreras': pl.Int64,
+        'carreras_limpias': pl.Int64
+    }
+    return pl.DataFrame(datosTablaPitcher_juego, schema=schema_df_pitcher_juego)
 
 def insertarDatosTablaPitcher_juego(datosTablaPitcher_juego):
     if datosTablaPitcher_juego.is_empty():
@@ -778,29 +832,41 @@ def insertarDatosTablaPitcher_juego(datosTablaPitcher_juego):
         if_table_exists='append'
     )
 
+def elimiarJuego(juego_id):
+    query = """DELETE FROM juego WHERE juego_id = %s"""
+    datos = [juego_id]
+    with psycopg2.connect(**connection) as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, datos)
+        conn.commit()
+
 def procesarTemporada(temporada):
     clavesJuegosTemporadaorada = getClavesJuegosTemporada(temporada)
     for juego_id in clavesJuegosTemporadaorada:
-        datosJuegoRaw = getDatosJuegoRaw(juego_id)
-        if datosJuegoRaw is None:
-            continue
-        datosTablaJuego = getDatosTablaJuego(datosJuegoRaw)
-        FkTablaJuego = {
-            'estadio_id': datosTablaJuego['estadio_id'],
-            'umpire_home_id': datosTablaJuego['umpire_home_id'],
-            'umpire_1b_id': datosTablaJuego['umpire_1b_id'],
-            'umpire_2b_id': datosTablaJuego['umpire_2b_id'],
-            'umpire_3b_id': datosTablaJuego['umpire_3b_id']
-        }
-        validarFkTablaJuego(FkTablaJuego, datosJuegoRaw)
-        insertDatosTablaJuego(datosTablaJuego)
-        datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
-        insertarDatosTablaJugador(datosTablaJugador)
-        bateadores, pitchers = procesarTurnos(datosJuegoRaw)
-        #datosTablaBateador_juego = getDatosTablaBateador_juego(bateadores, datosJuegoRaw)
-        #insertarDatosTablaBateador_juego(datosTablaBateador_juego)
-        #datosTablaPitcher_juego = getDatosTablaPitcher_juego(pitchers, datosJuegoRaw)
-        #insertarDatosTablaPitcher_juego(datosTablaPitcher_juego)
+        try:
+            datosJuegoRaw = getDatosJuegoRaw(juego_id)
+            if datosJuegoRaw is None:
+                continue
+            datosTablaJuego = getDatosTablaJuego(datosJuegoRaw)
+            FkTablaJuego = {
+                'estadio_id': datosTablaJuego['estadio_id'],
+                'umpire_home_id': datosTablaJuego['umpire_home_id'],
+                'umpire_1b_id': datosTablaJuego['umpire_1b_id'],
+                'umpire_2b_id': datosTablaJuego['umpire_2b_id'],
+                'umpire_3b_id': datosTablaJuego['umpire_3b_id']
+            }
+            validarFkTablaJuego(FkTablaJuego, datosJuegoRaw)
+            insertDatosTablaJuego(datosTablaJuego)
+            datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
+            insertarDatosTablaJugador(datosTablaJugador)
+            pitchers_visitante, pitchers_local = procesarTurnos(datosJuegoRaw)
+            datosTablaPitcher_juego_visitante = getDatosTablaPitcher_juego(pitchers_visitante, datosJuegoRaw, False)
+            insertarDatosTablaPitcher_juego(datosTablaPitcher_juego_visitante)
+            datosTablaPitcher_juego_local = getDatosTablaPitcher_juego(pitchers_local, datosJuegoRaw, True)
+            insertarDatosTablaPitcher_juego(datosTablaPitcher_juego_local)
+        except Exception as err:
+            elimiarJuego(juego_id)
+            raise err
     
 def main():
     temporadas = [2025] #! Esto solo es para las pruebas
@@ -822,5 +888,5 @@ def limpiarTablas():
         conn.commit()
 
 if __name__ == '__main__':
-    limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
+    #limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
