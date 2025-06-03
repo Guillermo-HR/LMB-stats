@@ -145,8 +145,8 @@ CREATE INDEX idx_juego_visitante_id ON juego (visitante_id);
 DROP TABLE IF EXISTS juego_pitcher CASCADE;
 CREATE TABLE IF NOT EXISTS juego_pitcher
 (
-    juego_id               INDEX NOT NULL,
-    pitcher_id             INDEX NOT NULL,
+    juego_id               INTEGER NOT NULL,
+    pitcher_id             INTEGER NOT NULL,
     es_local               BOOLEAN NOT NULL,
     es_abridor             BOOLEAN NOT NULL,
     es_ganador             BOOLEAN NOT NULL,
