@@ -587,6 +587,9 @@ def procesarTurnos(datosJuegoRaw):
     pitchers_local = []
     pitchers_visitante = []
 
+    bateadores_local = set()
+    bateadores_visitante = set()
+
     juego_id = int(datosJuegoRaw['gameData']['game']['pk'])
 
     datosTablaTurno = {
@@ -663,6 +666,11 @@ def procesarTurnos(datosJuegoRaw):
             pitchers_local.append(pitcher_id)
         elif not es_parte_alta and pitcher_id not in pitchers_visitante:
             pitchers_visitante.append(pitcher_id)
+
+        if es_parte_alta and bateador_id not in bateadores_visitante:
+            bateadores_visitante.add(bateador_id)
+        elif not es_parte_alta and bateador_id not in bateadores_local:
+            bateadores_local.add(bateador_id)
 
         # Procesar lanzamiento
         contador_bolas = 0
@@ -746,15 +754,15 @@ def procesarTurnos(datosJuegoRaw):
     }
     insertarDatosTablaLanzamiento(pl.DataFrame(datosTablaLanzamiento, schema=schema_df_lanzamiento))
     
-    return pitchers_visitante, pitchers_local
+    return pitchers_visitante, pitchers_local, bateadores_visitante, bateadores_local
     
-def getDatosTablaPitcher_juego(pitchers, datosJuegoRaw, es_local):
+def getDatosTablaJuego_pitcher(pitchers, datosJuegoRaw, es_local):
     if es_local:
         datosPitcherRaw = datosJuegoRaw['liveData']['boxscore']['teams']['home']['players']
     else:
         datosPitcherRaw = datosJuegoRaw['liveData']['boxscore']['teams']['away']['players']
     
-    datosTablaPitcher_juego = {
+    datosTablaJuego_pitcher = {
         'juego_id': [],
         'pitcher_id': [],
         'es_local': [],
@@ -764,51 +772,79 @@ def getDatosTablaPitcher_juego(pitchers, datosJuegoRaw, es_local):
         'oportunidad_salvamento': [],
         'es_salvamento': [],
         'at_bats': [],
-        'carreras': [],
-        'carreras_limpias': []
+        'strike_outs': [],
+        'outs': [],
+        'balls': [],
+        'strikes': [],
+        'singles': [],
+        'doubles': [],
+        'triples': [],
+        'home_runs': [],
+        'base_on_balls': [],
+        'intentional_walks': [],
+        'hit_by_pitch': [],
+        'wild_pitches': [],
+        'balks': [],
+        'runs': [],
+        'earned_runs': []
     }
     
     juego_id = int(datosJuegoRaw['gameData']['game']['pk'])
     for i, pitcher in enumerate(pitchers):
         datosPitcher = datosPitcherRaw[f'ID{pitcher}']
+
         pitcher_id = int(pitcher)
         if i == 0:
             es_abridor = True
         else:
             es_abridor = False
-        if datosPitcher['stats']['pitching']['wins'] == 1:
-            es_ganador = True
-        else:
-            es_ganador = False
-        if datosPitcher['stats']['pitching']['losses'] == 1:
-            es_perdedor = True
-        else:
-            es_perdedor = False
-        if datosPitcher['stats']['pitching']['saveOpportunities'] == 1:
-            oportunidad_salvamento = True
-        else:
-            oportunidad_salvamento = False
-        if datosPitcher['stats']['pitching']['saves'] == 1:
-            es_salvamento = True
-        else:
-            es_salvamento = False
+        es_ganador = datosPitcher['stats']['pitching']['wins'] == 1
+        es_perdedor = datosPitcher['stats']['pitching']['losses'] == 1
+        oportunidad_salvamento = datosPitcher['stats']['pitching']['saveOpportunities'] == 1
+        es_salvamento = datosPitcher['stats']['pitching']['saves'] == 1
         at_bats = int(datosPitcher['stats']['pitching']['atBats'])
-        carreras = int(datosPitcher['stats']['pitching']['runs'])
-        carreras_limpias = int(datosPitcher['stats']['pitching']['earnedRuns'])
+        strike_outs = int(datosPitcher['stats']['pitching']['strikeOuts'])
+        outs = int(datosPitcher['stats']['pitching']['outs'])
+        balls = int(datosPitcher['stats']['pitching']['balls'])
+        strikes = int(datosPitcher['stats']['pitching']['strikes'])
+        doubles = int(datosPitcher['stats']['pitching']['doubles'])
+        triples = int(datosPitcher['stats']['pitching']['triples'])
+        home_runs = int(datosPitcher['stats']['pitching']['homeRuns'])
+        singles = int(datosPitcher['stats']['pitching']['hits']) - doubles - triples - home_runs
+        base_on_balls = int(datosPitcher['stats']['pitching']['baseOnBalls'])
+        intentional_walks = int(datosPitcher['stats']['pitching']['intentionalWalks'])
+        hit_by_pitch = int(datosPitcher['stats']['pitching']['hitByPitch'])
+        wild_pitches = int(datosPitcher['stats']['pitching']['wildPitches'])
+        balks = int(datosPitcher['stats']['pitching']['balks'])
+        runs = int(datosPitcher['stats']['pitching']['runs'])
+        earned_runs = int(datosPitcher['stats']['pitching']['earnedRuns'])
 
-        datosTablaPitcher_juego['juego_id'].append(juego_id)
-        datosTablaPitcher_juego['pitcher_id'].append(pitcher_id)
-        datosTablaPitcher_juego['es_local'].append(es_local)
-        datosTablaPitcher_juego['es_abridor'].append(es_abridor)
-        datosTablaPitcher_juego['es_ganador'].append(es_ganador)
-        datosTablaPitcher_juego['es_perdedor'].append(es_perdedor)
-        datosTablaPitcher_juego['oportunidad_salvamento'].append(oportunidad_salvamento)
-        datosTablaPitcher_juego['es_salvamento'].append(es_salvamento)
-        datosTablaPitcher_juego['at_bats'].append(at_bats)
-        datosTablaPitcher_juego['carreras'].append(carreras)
-        datosTablaPitcher_juego['carreras_limpias'].append(carreras_limpias)
+        datosTablaJuego_pitcher['juego_id'].append(juego_id)
+        datosTablaJuego_pitcher['pitcher_id'].append(pitcher_id)
+        datosTablaJuego_pitcher['es_local'].append(es_local)
+        datosTablaJuego_pitcher['es_abridor'].append(es_abridor)
+        datosTablaJuego_pitcher['es_ganador'].append(es_ganador)
+        datosTablaJuego_pitcher['es_perdedor'].append(es_perdedor)
+        datosTablaJuego_pitcher['oportunidad_salvamento'].append(oportunidad_salvamento)
+        datosTablaJuego_pitcher['es_salvamento'].append(es_salvamento)
+        datosTablaJuego_pitcher['at_bats'].append(at_bats)
+        datosTablaJuego_pitcher['strike_outs'].append(strike_outs)
+        datosTablaJuego_pitcher['outs'].append(outs)
+        datosTablaJuego_pitcher['balls'].append(balls)
+        datosTablaJuego_pitcher['strikes'].append(strikes)
+        datosTablaJuego_pitcher['singles'].append(singles)
+        datosTablaJuego_pitcher['doubles'].append(doubles)
+        datosTablaJuego_pitcher['triples'].append(triples)
+        datosTablaJuego_pitcher['home_runs'].append(home_runs)
+        datosTablaJuego_pitcher['base_on_balls'].append(base_on_balls)
+        datosTablaJuego_pitcher['intentional_walks'].append(intentional_walks)
+        datosTablaJuego_pitcher['hit_by_pitch'].append(hit_by_pitch)
+        datosTablaJuego_pitcher['wild_pitches'].append(wild_pitches)
+        datosTablaJuego_pitcher['balks'].append(balks)
+        datosTablaJuego_pitcher['runs'].append(runs)
+        datosTablaJuego_pitcher['earned_runs'].append(earned_runs)
 
-    schema_df_pitcher_juego = {
+    schema_df_juego_pitcher = {
         'juego_id': pl.Int64,
         'pitcher_id': pl.Int64,
         'es_local': pl.Boolean,
@@ -818,16 +854,151 @@ def getDatosTablaPitcher_juego(pitchers, datosJuegoRaw, es_local):
         'oportunidad_salvamento': pl.Boolean,
         'es_salvamento': pl.Boolean,
         'at_bats': pl.Int64,
-        'carreras': pl.Int64,
-        'carreras_limpias': pl.Int64
+        'strike_outs': pl.Int64,
+        'outs': pl.Int64,
+        'balls': pl.Int64,
+        'strikes': pl.Int64,
+        'singles': pl.Int64,
+        'doubles': pl.Int64,
+        'triples': pl.Int64,
+        'home_runs': pl.Int64,
+        'base_on_balls': pl.Int64,
+        'intentional_walks': pl.Int64,
+        'hit_by_pitch': pl.Int64,
+        'wild_pitches': pl.Int64,
+        'balks': pl.Int64,
+        'runs': pl.Int64,
+        'earned_runs': pl.Int64
     }
-    return pl.DataFrame(datosTablaPitcher_juego, schema=schema_df_pitcher_juego)
+    return pl.DataFrame(datosTablaJuego_pitcher, schema=schema_df_juego_pitcher)
 
-def insertarDatosTablaPitcher_juego(datosTablaPitcher_juego):
-    if datosTablaPitcher_juego.is_empty():
+def insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher):
+    if datosTablaJuego_pitcher.is_empty():
         return
-    datosTablaPitcher_juego.write_database(
+    datosTablaJuego_pitcher.write_database(
         table_name='juego_pitcher',
+        connection=connection_uri,
+        if_table_exists='append'
+    )
+
+def getDatosTablaJuego_bateador(bateadores, datosJuegoRaw, es_local):
+    if es_local:
+        datosBateadorRaw = datosJuegoRaw['liveData']['boxscore']['teams']['home']['players']
+    else:
+        datosBateadorRaw = datosJuegoRaw['liveData']['boxscore']['teams']['away']['players']
+    
+    datosTablaJuego_bateador = {
+        'juego_id': [],
+        'bateador_id': [],
+        'es_local': [],
+        'at_bats': [],
+        'air_outs': [],
+        'fly_outs': [],
+        'ground_outs': [],
+        'line_outs': [],
+        'pop_outs': [],
+        'strike_outs': [],
+        'ground_into_double_play': [],
+        'ground_into_triple_play': [],
+        'left_on_base': [],
+        'sac_bunts': [],
+        'sac_flies': [],
+        'singles': [],
+        'doubles': [],
+        'triples': [],
+        'home_runs': [],
+        'base_on_balls': [],
+        'intentional_walks': [],
+        'hit_by_pitch': [],
+        'runs': [],
+        'rbi': []
+    }
+    
+    juego_id = int(datosJuegoRaw['gameData']['game']['pk'])
+    for bateador in bateadores:
+        datosBateador = datosBateadorRaw[f'ID{bateador}']
+
+        bateador_id = int(bateador)
+        at_bats = int(datosBateador['stats']['batting']['atBats'])
+        air_outs = int(datosBateador['stats']['batting']['airOuts'])
+        fly_outs = int(datosBateador['stats']['batting']['flyOuts'])
+        ground_outs = int(datosBateador['stats']['batting']['groundOuts'])
+        line_outs = int(datosBateador['stats']['batting']['lineOuts'])
+        pop_outs = int(datosBateador['stats']['batting']['popOuts'])
+        strike_outs = int(datosBateador['stats']['batting']['strikeOuts'])
+        ground_into_double_play = int(datosBateador['stats']['batting']['groundIntoDoublePlay'])
+        ground_into_triple_play = int(datosBateador['stats']['batting']['groundIntoTriplePlay'])
+        left_on_base = int(datosBateador['stats']['batting']['leftOnBase'])
+        sac_bunts = int(datosBateador['stats']['batting']['sacBunts'])
+        sac_flies = int(datosBateador['stats']['batting']['sacFlies'])
+        doubles = int(datosBateador['stats']['batting']['doubles'])
+        triples = int(datosBateador['stats']['batting']['triples'])
+        home_runs = int(datosBateador['stats']['batting']['homeRuns'])
+        singles = int(datosBateador['stats']['batting']['hits']) - doubles - triples - home_runs
+        base_on_balls = int(datosBateador['stats']['batting']['baseOnBalls'])
+        intentional_walks = int(datosBateador['stats']['batting']['intentionalWalks'])
+        hit_by_pitch = int(datosBateador['stats']['batting']['hitByPitch'])
+        runs = int(datosBateador['stats']['batting']['runs'])
+        rbi = int(datosBateador['stats']['batting']['rbi'])
+
+        datosTablaJuego_bateador['juego_id'].append(juego_id)
+        datosTablaJuego_bateador['bateador_id'].append(bateador_id)
+        datosTablaJuego_bateador['es_local'].append(es_local)
+        datosTablaJuego_bateador['at_bats'].append(at_bats)
+        datosTablaJuego_bateador['air_outs'].append(air_outs)
+        datosTablaJuego_bateador['fly_outs'].append(fly_outs)
+        datosTablaJuego_bateador['ground_outs'].append(ground_outs)
+        datosTablaJuego_bateador['line_outs'].append(line_outs)
+        datosTablaJuego_bateador['pop_outs'].append(pop_outs)
+        datosTablaJuego_bateador['strike_outs'].append(strike_outs)
+        datosTablaJuego_bateador['ground_into_double_play'].append(ground_into_double_play)
+        datosTablaJuego_bateador['ground_into_triple_play'].append(ground_into_triple_play)
+        datosTablaJuego_bateador['left_on_base'].append(left_on_base)
+        datosTablaJuego_bateador['sac_bunts'].append(sac_bunts)
+        datosTablaJuego_bateador['sac_flies'].append(sac_flies)
+        datosTablaJuego_bateador['singles'].append(singles)
+        datosTablaJuego_bateador['doubles'].append(doubles)
+        datosTablaJuego_bateador['triples'].append(triples)
+        datosTablaJuego_bateador['home_runs'].append(home_runs)
+        datosTablaJuego_bateador['base_on_balls'].append(base_on_balls)
+        datosTablaJuego_bateador['intentional_walks'].append(intentional_walks)
+        datosTablaJuego_bateador['hit_by_pitch'].append(hit_by_pitch)
+        datosTablaJuego_bateador['runs'].append(runs)
+        datosTablaJuego_bateador['rbi'].append(rbi)
+
+    schema_df_juego_bateador = {
+        'juego_id': pl.Int64,
+        'bateador_id': pl.Int64,
+        'es_local': pl.Boolean,
+        'at_bats': pl.Int64,
+        'air_outs': pl.Int64,
+        'fly_outs': pl.Int64,
+        'ground_outs': pl.Int64,
+        'line_outs': pl.Int64,
+        'pop_outs': pl.Int64,
+        'strike_outs': pl.Int64,
+        'ground_into_double_play': pl.Int64,
+        'ground_into_triple_play': pl.Int64,
+        'left_on_base': pl.Int64,
+        'sac_bunts': pl.Int64,
+        'sac_flies': pl.Int64,
+        'singles': pl.Int64,
+        'doubles': pl.Int64,
+        'triples': pl.Int64,
+        'home_runs': pl.Int64,
+        'base_on_balls': pl.Int64,
+        'intentional_walks': pl.Int64,
+        'hit_by_pitch': pl.Int64,
+        'runs': pl.Int64,
+        'rbi': pl.Int64
+    }
+    return pl.DataFrame(datosTablaJuego_bateador, schema=schema_df_juego_bateador)
+
+def insertarDatosTablaJuego_bateador(datosTablaJuego_bateador):
+    if datosTablaJuego_bateador.is_empty():
+        return
+    datosTablaJuego_bateador.write_database(
+        table_name='juego_bateador',
         connection=connection_uri,
         if_table_exists='append'
     )
@@ -859,11 +1030,15 @@ def procesarTemporada(temporada):
             insertDatosTablaJuego(datosTablaJuego)
             datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
             insertarDatosTablaJugador(datosTablaJugador)
-            pitchers_visitante, pitchers_local = procesarTurnos(datosJuegoRaw)
-            datosTablaPitcher_juego_visitante = getDatosTablaPitcher_juego(pitchers_visitante, datosJuegoRaw, False)
-            insertarDatosTablaPitcher_juego(datosTablaPitcher_juego_visitante)
-            datosTablaPitcher_juego_local = getDatosTablaPitcher_juego(pitchers_local, datosJuegoRaw, True)
-            insertarDatosTablaPitcher_juego(datosTablaPitcher_juego_local)
+            pitchers_visitante, pitchers_local, bateadores_visitante, bateadores_local = procesarTurnos(datosJuegoRaw)
+            datosTablaJuego_pitcher_visitante = getDatosTablaJuego_pitcher(pitchers_visitante, datosJuegoRaw, False)
+            insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher_visitante)
+            datosTablaJuego_pitcher_local = getDatosTablaJuego_pitcher(pitchers_local, datosJuegoRaw, True)
+            insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher_local)
+            datosTablaJuego_bateador_visitante = getDatosTablaJuego_bateador(bateadores_visitante, datosJuegoRaw, False)
+            insertarDatosTablaJuego_bateador(datosTablaJuego_bateador_visitante)
+            datosTablaJuego_bateador_local = getDatosTablaJuego_bateador(bateadores_local, datosJuegoRaw, True)
+            insertarDatosTablaJuego_bateador(datosTablaJuego_bateador_local)
         except Exception as err:
             elimiarJuego(juego_id)
             raise err
@@ -888,5 +1063,5 @@ def limpiarTablas():
         conn.commit()
 
 if __name__ == '__main__':
-    #limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
+    limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
