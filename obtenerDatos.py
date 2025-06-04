@@ -19,16 +19,17 @@ def crearEngine(coneccion_local=True):
         host = os.getenv('DB_HOST_LOCAL')
         port = os.getenv('DB_PORT_LOCAL')
         database = os.getenv('DB_NAME_LOCAL')
+        connection_url = f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}'
     else:
         user = os.getenv('DB_USER_PROD')
         password = os.getenv('DB_PASSWORD_PROD')
         host = os.getenv('DB_HOST_PROD')
         port = os.getenv('DB_PORT_PROD')
         database = os.getenv('DB_NAME_PROD')
+        connection_url=f'postgresql://{user}:{password}@{host}/{database}?sslmode=require'
 
-    connection_url = f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}'
     return create_engine(connection_url), connection_url
-
+engine, connection_url = crearEngine(coneccion_local=True)
 # URLs de la API de MLB
 urlBaseV1 = f'https://statsapi.mlb.com/api/v1/'
 urlBaseV1_1 = 'https://statsapi.mlb.com/api/v1.1/'
@@ -1076,7 +1077,5 @@ def limpiarTablas():
         conn.commit()
 
 if __name__ == '__main__':
-    global engine, connection_url
-    engine, connection_url = crearEngine(coneccion_local=True)
     limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
