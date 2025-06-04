@@ -6,68 +6,67 @@ import json
 from datetime import datetime
 import polars as pl
 import psycopg2
+from sqlalchemy import create_engine, text
 import dotenv
 import os
 
 # Datos conexion a la base de datos
-dotenv.load_dotenv()
-host = os.getenv('DB_HOST')
-port = os.getenv('DB_PORT')
-database = os.getenv('DB_NAME')
-user = os.getenv('DB_USER')
-password = os.getenv('DB_PASSWORD')
-connection = {
-    'host': host,
-    'port': port,
-    'database': database,
-    'user': user,
-    'password': password
-    }
-connection_url = f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}'
+def crearEngine(coneccion_local=True):
+    dotenv.load_dotenv()
+    if coneccion_local:
+        user = os.getenv('DB_USER_LOCAL')
+        password = os.getenv('DB_PASSWORD_LOCAL')
+        host = os.getenv('DB_HOST_LOCAL')
+        port = os.getenv('DB_PORT_LOCAL')
+        database = os.getenv('DB_NAME_LOCAL')
+    else:
+        user = os.getenv('DB_USER_PROD')
+        password = os.getenv('DB_PASSWORD_PROD')
+        host = os.getenv('DB_HOST_PROD')
+        port = os.getenv('DB_PORT_PROD')
+        database = os.getenv('DB_NAME_PROD')
+
+    connection_url = f'postgresql+psycopg2://{user}:{password}@{host}:{port}/{database}'
+    return create_engine(connection_url), connection_url
 
 # URLs de la API de MLB
 urlBaseV1 = f'https://statsapi.mlb.com/api/v1/'
 urlBaseV1_1 = 'https://statsapi.mlb.com/api/v1.1/'
 
 def getJugadoresRegistrados():
-    query = """SELECT jugador_id FROM jugador"""
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        jugadores = cursor.fetchall()
-    return set([jugador[0] for jugador in jugadores])
+    query = text("""SELECT jugador_id FROM jugador""")
+    with engine.connect() as conn:
+        jugadores = conn.execute(query)
+        jugadores = [jugador[0] for jugador in jugadores]
+    return set(jugadores)
 
 def getUmpiresRegistrados():
-    query = """SELECT umpire_id FROM umpire"""
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        umpires = cursor.fetchall()
-    return set([umpire[0] for umpire in umpires])
+    query = text("""SELECT umpire_id FROM umpire""")
+    with engine.connect() as conn:
+        umpires = conn.execute(query)
+        umpires = [umpire[0] for umpire in umpires]
+    return set(umpires)
 
 def getEstadiosRegistrados():
-    query = """SELECT estadio_id FROM estadio"""
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        estadios = cursor.fetchall()
-    return set([estadio[0] for estadio in estadios])
+    query = text("""SELECT estadio_id FROM estadio""")
+    with engine.connect() as conn:
+        estadios = conn.execute(query)
+        estadios = [estadio[0] for estadio in estadios]
+    return set(estadios)
 
 def getEquiposRegistrados():
-    query = """SELECT equipo_id FROM equipo"""
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        equipos = cursor.fetchall()
-    return set([equipo[0] for equipo in equipos])
+    query = text("""SELECT equipo_id FROM equipo""")
+    with engine.connect() as conn:
+        equipos = conn.execute(query)
+        equipos = [equipo[0] for equipo in equipos]
+    return set(equipos)
 
 def getTurno_idActual():
-    query = """SELECT MAX(turno_id) 
-                FROM turno"""
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        turno_id = cursor.fetchone()[0]
+    query = text("""SELECT MAX(turno_id) 
+                FROM turno""")
+    with engine.connect() as conn:
+        turno_id = conn.execute(query)
+        turno_id = turno_id.fetchone()[0]
     if turno_id is None:
         turno_id = 0
     return turno_id
@@ -246,59 +245,55 @@ def validarTablasIndependientes():
     query = """SELECT COUNT(*)=0
                FROM {}"""
     
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        
+    with engine.connect() as conn:
         # Verificar si la tabla posicion esta vacia
-        cursor.execute(query.format('posicion'))
-        if cursor.fetchone()[0]:
+        len_posicion = conn.execute(text(query.format('posicion')))
+        if len_posicion.fetchone()[0]:
             agregarDatosTablaPosicion()
 
         # Verificar si la tabla tipo_juego esta vacia
-        cursor.execute(query.format('tipo_juego'))
-        if cursor.fetchone()[0]:
+        len_tipo_juego = conn.execute(text(query.format('tipo_juego')))
+        if len_tipo_juego.fetchone()[0]:
             agregarDatosTablaTipo_juego()
         
         # Verificar si la tabla status_juego esta vacia
-        cursor.execute(query.format('status_juego'))
-        if cursor.fetchone()[0]:
+        len_status_juego = conn.execute(text(query.format('status_juego')))
+        if len_status_juego.fetchone()[0]:
             agregarDatosTablaStatus_juego()
         
         # Verificar si la tabla tipo_turno esta vacia
-        cursor.execute(query.format('tipo_turno'))
-        if cursor.fetchone()[0]:
+        len_tipo_turno = conn.execute(text(query.format('tipo_turno')))
+        if len_tipo_turno.fetchone()[0]:
             agregarDatosTablaTipo_turno()
 
         # Verificar si la tabla tipo_lanzamiento esta vacia
-        cursor.execute(query.format('tipo_lanzamiento'))
-        if cursor.fetchone()[0]:
+        len_tipo_lanzamiento = conn.execute(text(query.format('tipo_lanzamiento')))
+        if len_tipo_lanzamiento.fetchone()[0]:
             agregarDatosTipo_lanzamiento()
 
         # Verificar si la tabla equipo esta vacia
-        cursor.execute(query.format('equipo'))
-        if cursor.fetchone()[0]:
+        len_equipo = conn.execute(text(query.format('equipo')))
+        if len_equipo.fetchone()[0]:
             agregarDatosEquipo()
     
 def getUltimoPartidoRegistrado():
-    query = """SELECT (MAX(DATE_TRUNC('day',primer_lanzamiento)::date ))
-                FROM juego"""
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        ultimoPartidoRegistrado = cursor.fetchone()[0]
+    query = text("""SELECT (MAX(DATE_TRUNC('day',primer_lanzamiento)::date ))
+                FROM juego""")
+    with engine.connect() as conn:
+        ultimoPartidoRegistrad = conn.execute(query)
+        ultimoPartidoRegistrado = ultimoPartidoRegistrad.fetchone()[0]
     if ultimoPartidoRegistrado is None:
         ultimoPartidoRegistrado = datetime(2021, 1, 1).date()
     return ultimoPartidoRegistrado
 
 def getClavesJuegosUltimoDiaRegistrado():
-    query = """SELECT juego_id FROM juego
+    query = text("""SELECT juego_id FROM juego
                 WHERE DATE_TRUNC('day', primer_lanzamiento) = (SELECT MAX(DATE_TRUNC('day', primer_lanzamiento)) 
-                FROM juego)"""
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query)
-        juegos = cursor.fetchall()
-    return set([juego[0] for juego in juegos])
+                FROM juego)""")
+    with engine.connect() as conn:
+        clavesJuegosUltimoDiaRegistrado = conn.execute(query)
+        clavesJuegosUltimoDiaRegistrado = [juego[0] for juego in clavesJuegosUltimoDiaRegistrado]
+    return set(clavesJuegosUltimoDiaRegistrado)
 
 def getClavesJuegosTemporada(temporada):
     juegosTemporada = requests.get(urlBaseV1 + f'schedule?sportId=23&leageId=125&season={temporada}').content
@@ -414,18 +409,24 @@ def getDatosTablaJuego(datosJuegoRaw):
     return datosTablaJuego
 
 def validarFkTablaJuego(FkTablaJuego, datosJuegoRaw):
-    query_estadio = """INSERT INTO estadio
-                    (
-                        estadio_id, nombre, ciudad, capacidad, 
-                        tipo_pasto, jardin_izquierdo, jardin_central, jardin_derecho
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"""
-    
-    query_umpire = """INSERT INTO umpire
-                    (
-                        umpire_id, nombre
-                    )
-                    VALUES (%s, %s)"""
+    query_estadio = text("""INSERT INTO estadio
+                            (
+                                estadio_id, nombre, ciudad, capacidad, 
+                                tipo_pasto, jardin_izquierdo, jardin_central, jardin_derecho
+                            )
+                            VALUES
+                            (
+                                :estadio_id, :nombre, :ciudad, :capacidad, 
+                                :tipo_pasto, :jardin_izquierdo, :jardin_central, :jardin_derecho
+                            )""")
+    query_umpire = text("""INSERT INTO umpire
+                            (
+                                umpire_id, nombre
+                            )
+                            VALUES 
+                            (
+                                :umpire_id, :nombre
+                            )""")
     
     if FkTablaJuego['estadio_id'] not in estadiosRegistrados:
         estadiosRegistrados.add(FkTablaJuego['estadio_id'])
@@ -447,10 +448,18 @@ def validarFkTablaJuego(FkTablaJuego, datosJuegoRaw):
         if any(v is None for v in possiblesNone):
             print(f'juego: {FkTablaJuego["estadio_id"]} -> faltan datos del estadio')
 
-        datos = [FkTablaJuego['estadio_id'], nombre_estadio, ciudad_estadio, capacidad_estadio, tipo_pasto, jardin_izquierdo, jardin_central, jardin_derecho]
-        with psycopg2.connect(**connection) as conn:
-            cursor = conn.cursor()
-            cursor.execute(query_estadio, datos)
+        datos = {
+                    'estadio_id': FkTablaJuego['estadio_id'],
+                    'nombre': nombre_estadio,
+                    'ciudad': ciudad_estadio,
+                    'capacidad': capacidad_estadio,
+                    'tipo_pasto': tipo_pasto,
+                    'jardin_izquierdo': jardin_izquierdo,
+                    'jardin_central': jardin_central,
+                    'jardin_derecho': jardin_derecho
+                }
+        with engine.connect() as conn:
+            conn.execute(query_estadio, datos)
             conn.commit()
     
     for umpire_id in [FkTablaJuego['umpire_home_id'], FkTablaJuego['umpire_1b_id'], FkTablaJuego['umpire_2b_id'], FkTablaJuego['umpire_3b_id']]:
@@ -462,28 +471,32 @@ def validarFkTablaJuego(FkTablaJuego, datosJuegoRaw):
         datosUmpireRaw = requests.get(urlBaseV1 + f'people/{umpire_id}').content
         datosUmpireRaw = json.loads(datosUmpireRaw)
         nombre_umpire = str(datosUmpireRaw['people'][0]['fullName'])
-        datos = [umpire_id, nombre_umpire]
-        with psycopg2.connect(**connection) as conn:
-            cursor = conn.cursor()
-            cursor.execute(query_umpire, datos)
+        datos = {
+            'umpire_id': umpire_id,
+            'nombre': nombre_umpire
+        }
+        with engine.connect() as conn:
+            conn.execute(query_umpire, datos)
             conn.commit()
 
 def insertDatosTablaJuego(datosTablaJuego):
-    query = """INSERT INTO juego 
+    query = text("""INSERT INTO juego 
                 (
-                    juego_id, temporada, primer_lanzamiento, duracion, retraso, numero_entradas, temperatura, viento, asistencia, gano_local,
-                    local_id, visitante_id, tipo_juego_id, estadio_id, status_juego_id, umpire_home_id, umpire_1b_id, umpire_2b_id, umpire_3b_id
+                    juego_id, temporada, primer_lanzamiento, duracion, retraso, numero_entradas, temperatura, viento, 
+                    asistencia, gano_local, local_id, visitante_id, tipo_juego_id, estadio_id, status_juego_id, umpire_home_id, 
+                    umpire_1b_id, umpire_2b_id, umpire_3b_id
                 ) 
                 VALUES 
                 (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
-                )"""
-    datos = [v for v in datosTablaJuego.values()]
+                    :juego_id, :temporada, :primer_lanzamiento, :duracion, :retraso, :numero_entradas, :temperatura, :viento, 
+                    :asistencia, :gano_local, :local_id, :visitante_id, :tipo_juego_id, :estadio_id, :status_juego_id, :umpire_home_id, 
+                    :umpire_1b_id, :umpire_2b_id, :umpire_3b_id
+                )""")
     
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query, datos)
+    with engine.connect() as conn:
+        conn.execute(query, datosTablaJuego)
         conn.commit()
+    pass
 
 def getDatosTablaJugador(datosJugadoresRaw, juego_id):
     jugadores = []
@@ -1004,11 +1017,12 @@ def insertarDatosTablaJuego_bateador(datosTablaJuego_bateador):
     )
 
 def elimiarJuego(juego_id):
-    query = """DELETE FROM juego WHERE juego_id = %s"""
-    datos = [juego_id]
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
-        cursor.execute(query, datos)
+    query = text("""DELETE FROM juego WHERE juego_id = :juego_id""")
+    datos = {
+                'juego_id': juego_id
+            }
+    with engine.connect() as conn:
+        conn.execute(query, datos)
         conn.commit()
 
 def procesarTemporada(temporada):
@@ -1054,14 +1068,15 @@ def main():
 
 def limpiarTablas():
     query = """DELETE FROM {}"""
-    tablas = ['juego_pitcher', 'lanzamiento', 'tipo_lanzamiento', 'turno', 'tipo_turno', 'jugador', 'posicion', 'juego',
+    tablas = ['juego_pitcher', 'juego_bateador', 'lanzamiento', 'tipo_lanzamiento', 'turno', 'tipo_turno', 'jugador', 'posicion', 'juego',
               'equipo', 'tipo_juego', 'estadio', 'status_juego', 'umpire']
-    with psycopg2.connect(**connection) as conn:
-        cursor = conn.cursor()
+    with engine.connect() as conn:
         for tabla in tablas:
-            cursor.execute(query.format(tabla))
+            conn.execute(text(query.format(tabla)))
         conn.commit()
 
 if __name__ == '__main__':
+    global engine, connection_url
+    engine, connection_url = crearEngine(coneccion_local=True)
     limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
