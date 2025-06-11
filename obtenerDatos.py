@@ -9,6 +9,7 @@ import psycopg2
 from sqlalchemy import create_engine, text
 import dotenv
 import os
+from time import sleep
 
 # Datos conexion a la base de datos
 def crearEngine(coneccion_local=True):
@@ -364,12 +365,11 @@ def getDatosTablaJuego(datosJuegoRaw):
     carreras_local = int(datosJuegoRaw['liveData']['linescore']['teams']['home']['runs'])
     carreras_visitante = int(datosJuegoRaw['liveData']['linescore']['teams']['away']['runs'])
     gano_local = bool(carreras_local > carreras_visitante)
+
     umpire_home_id = None
     umpire_1b_id = None
     umpire_2b_id = None
     umpire_3b_id = None
-    if len(datosJuegoRaw['liveData']['boxscore']['officials']) != 4:
-        print(f'juego: {juego_id} -> faltan umpires')
     for umpire in datosJuegoRaw['liveData']['boxscore']['officials']:
         if umpire['officialType'] == 'Home Plate':
             umpire_home_id = int(umpire['official']['id'])
@@ -395,6 +395,8 @@ def getDatosTablaJuego(datosJuegoRaw):
     datosTablaJuego['temperatura'] = temperatura
     datosTablaJuego['viento'] = viento
     datosTablaJuego['asistencia'] = asistencia
+    datosTablaJuego['carreras_local'] = carreras_local
+    datosTablaJuego['carreras_visitante'] = carreras_visitante
     datosTablaJuego['gano_local'] = gano_local
 
     datosTablaJuego['local_id'] = local_id
@@ -445,10 +447,6 @@ def validarFkTablaJuego(FkTablaJuego, datosJuegoRaw):
         if 'rightLine' in datosJuegoRaw['gameData']['venue']['fieldInfo']:
             jardin_derecho = int(datosJuegoRaw['gameData']['venue']['fieldInfo']['rightLine'])
 
-        possiblesNone = [jardin_izquierdo, jardin_central, jardin_derecho]
-        if any(v is None for v in possiblesNone):
-            print(f'juego: {FkTablaJuego["estadio_id"]} -> faltan datos del estadio')
-
         datos = {
                     'estadio_id': FkTablaJuego['estadio_id'],
                     'nombre': nombre_estadio,
@@ -484,13 +482,13 @@ def insertDatosTablaJuego(datosTablaJuego):
     query = text("""INSERT INTO juego 
                 (
                     juego_id, temporada, primer_lanzamiento, duracion, retraso, numero_entradas, temperatura, viento, 
-                    asistencia, gano_local, local_id, visitante_id, tipo_juego_id, estadio_id, status_juego_id, umpire_home_id, 
-                    umpire_1b_id, umpire_2b_id, umpire_3b_id
+                    asistencia, carreras_local, carreras_visitante,gano_local, local_id, visitante_id, tipo_juego_id, 
+                    estadio_id, status_juego_id, umpire_home_id, umpire_1b_id, umpire_2b_id, umpire_3b_id
                 ) 
                 VALUES 
                 (
                     :juego_id, :temporada, :primer_lanzamiento, :duracion, :retraso, :numero_entradas, :temperatura, :viento, 
-                    :asistencia, :gano_local, :local_id, :visitante_id, :tipo_juego_id, :estadio_id, :status_juego_id, :umpire_home_id, 
+                    :asistencia, :carreras_local, :carreras_visitante,:gano_local, :local_id, :visitante_id, :tipo_juego_id, :estadio_id, :status_juego_id, :umpire_home_id, 
                     :umpire_1b_id, :umpire_2b_id, :umpire_3b_id
                 )""")
     
@@ -539,11 +537,8 @@ def getDatosTablaJugador(datosJugadoresRaw, juego_id):
         if 'primaryPosition' in jugador:
             posicion_id = str(jugador['primaryPosition']['code'])
         
-        posiblesNone = [fecha_nacimiento, pais_nacimiento, lado_bateo, lado_lanzamiento, zona_strike_top, zona_strike_bottom, posicion_id]
         if nombre is None:
             print(f'jugador: {jugador_id} -> faltan datos del jugador. Juego: {juego_id}')
-        elif any(v is None for v in posiblesNone):
-            print(f'jugador: {jugador_id} -> faltan datos del jugador')
 
         jugadores.append({
             'jugador_id': jugador_id,
@@ -722,7 +717,6 @@ def procesarTurnos(datosJuegoRaw):
             else:
                 x = None
                 y = None
-                print(f'lanzamiento: {turno_id}-{numero_lanzamiento} -> faltan datos de coordenadas')
             tipo_lanzamiento_id = str(lanzamiento['details']['code'])
 
             datosTablaLanzamiento['turno_id'].append(turno_id)
@@ -1025,9 +1019,11 @@ def elimiarJuego(juego_id):
     with engine.connect() as conn:
         conn.execute(query, datos)
         conn.commit()
+    print(f'Juego {juego_id} eliminado debido a un error en el procesamiento.')
 
 def procesarTemporada(temporada):
     clavesJuegosTemporadaorada = getClavesJuegosTemporada(temporada)
+    print(f'Juegos a agregar: {len(clavesJuegosTemporadaorada)}')
     for juego_id in clavesJuegosTemporadaorada:
         try:
             datosJuegoRaw = getDatosJuegoRaw(juego_id)
@@ -1057,9 +1053,10 @@ def procesarTemporada(temporada):
         except Exception as err:
             elimiarJuego(juego_id)
             raise err
+        sleep(1)
     
 def main():
-    temporadas = [2025] #! Esto solo es para las pruebas
+    #temporadas = [2025] #! Esto solo es para las pruebas
     temporadas = list(range(2021, 2026)) 
 
     validarTablasIndependientes()
@@ -1077,5 +1074,5 @@ def limpiarTablas():
         conn.commit()
 
 if __name__ == '__main__':
-    limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
+    #limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
