@@ -106,14 +106,16 @@ CREATE TABLE IF NOT EXISTS juego
 (
     juego_id      INTEGER NOT NULL ,
     temporada     TEXT NOT NULL ,
-    primer_lanzamiento TIMESTAMP(0) WITH TIME ZONE,
-    duracion       SMALLINT,
-    retraso         SMALLINT,
-    numero_entradas SMALLINT,
-    temperatura   SMALLINT,
-    viento        TEXT,
-    asistencia    SMALLINT,
-    gano_local   BOOLEAN,
+    primer_lanzamiento TIMESTAMP(0) WITH TIME ZONE NOT NULL,
+    duracion       SMALLINT NOT NULL,
+    retraso         SMALLINT NOT NULL,
+    numero_entradas SMALLINT NOT NULL,
+    temperatura   SMALLINT NOT NULL,
+    viento        TEXT NOT NULL,
+    asistencia    SMALLINT NOT NULL,
+    carreras_local SMALLINT NOT NULL,
+    carreras_visitante SMALLINT NOT NULL,
+    gano_local   BOOLEAN NOT NULL,
 
     local_id      SMALLINT NOT NULL ,
     visitante_id   SMALLINT NOT NULL ,
@@ -215,7 +217,7 @@ DROP TABLE IF EXISTS turno CASCADE;
 CREATE TABLE IF NOT EXISTS turno
 (
     turno_id      INTEGER NOT NULL ,
-    at_bat_descripcion     TEXT,
+    at_bat_descripcion     TEXT NOT NULL,
     entrada        SMALLINT NOT NULL ,
     es_parte_alta      BOOLEAN NOT NULL ,
     cuenta_outs SMALLINT NOT NULL ,
@@ -224,7 +226,7 @@ CREATE TABLE IF NOT EXISTS turno
     juego_id      INTEGER NOT NULL ,
     bateador_id   INTEGER NOT NULL ,
     pitcher_id   INTEGER NOT NULL ,
-    tipo_turno_id TEXT,
+    tipo_turno_id TEXT NOT NULL,
 
     PRIMARY KEY (turno_id),
     CONSTRAINT fk_turno_juego_id FOREIGN KEY (juego_id) REFERENCES juego(juego_id) ON DELETE CASCADE,
