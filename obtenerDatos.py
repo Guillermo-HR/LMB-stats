@@ -608,6 +608,11 @@ def procesarTurnos(datosJuegoRaw):
         'es_parte_alta': [],
         'cuenta_outs': [],
         'carreras_anotadas': [],
+        'llego_1b': [],
+        'llego_2b': [],
+        'llego_3b': [],
+        'llego_home': [],
+        'es_corredor_emergente': [],
         'juego_id': [],
         'bateador_id': [],
         'pitcher_id': [],
@@ -627,7 +632,7 @@ def procesarTurnos(datosJuegoRaw):
         'y': [],
         'tipo_lanzamiento_id': []
     }
-    
+    jugadoresEnBase = {}
     contador_outs = 0
     contador_carreras_local = 0
     contador_carreras_visitante = 0
@@ -646,6 +651,7 @@ def procesarTurnos(datosJuegoRaw):
         contador_outs = int(jugada['count']['outs'])
         if cuenta_outs == 3:
             contador_outs = 0
+            jugadoresEnBase = {}
         marcador_local = int(jugada['result']['homeScore'])
         marcador_visitante = int(jugada['result']['awayScore'])
         if es_parte_alta:
@@ -665,8 +671,13 @@ def procesarTurnos(datosJuegoRaw):
         datosTablaTurno['es_parte_alta'].append(es_parte_alta)
         datosTablaTurno['cuenta_outs'].append(cuenta_outs)
         datosTablaTurno['carreras_anotadas'].append(carreras_anotadas)
-        datosTablaTurno['juego_id'].append(juego_id)
+        datosTablaTurno['llego_1b'].append(False)
+        datosTablaTurno['llego_2b'].append(False)
+        datosTablaTurno['llego_3b'].append(False)
+        datosTablaTurno['llego_home'].append(False)
+        datosTablaTurno['es_corredor_emergente'].append(False)
 
+        datosTablaTurno['juego_id'].append(juego_id)
         datosTablaTurno['bateador_id'].append(bateador_id)
         datosTablaTurno['pitcher_id'].append(pitcher_id)
         datosTablaTurno['tipo_turno_id'].append(tipo_turno_id)
@@ -681,12 +692,28 @@ def procesarTurnos(datosJuegoRaw):
         elif not es_parte_alta and bateador_id not in bateadores_local:
             bateadores_local.add(bateador_id)
 
-        # Procesar lanzamiento
+        # Procesar lanzamient
         contador_bolas = 0
         contador_strikes = 0
         numero_lanzamiento = 0
         for lanzamiento in jugada['playEvents']:
             if 'eventType' in lanzamiento['details']:
+                if lanzamiento['details']['eventType'] == 'offensive_substitution':
+                    if es_parte_alta:
+                        bateadores_visitante.add(int(lanzamiento['player']['id']))
+                    else:
+                        bateadores_local.add(int(lanzamiento['player']['id']))
+                    corredor_anterior = int(lanzamiento['replacedPlayer']['id'])
+                    nuevo_corredor = int(lanzamiento['player']['id'])
+                    if corredor_anterior in jugadoresEnBase:
+                        datosTablaTurno['es_corredor_emergente'][jugadoresEnBase[corredor_anterior]] = True
+                        jugadoresEnBase[nuevo_corredor] = jugadoresEnBase[corredor_anterior]
+                        del jugadoresEnBase[corredor_anterior]
+                elif lanzamiento['details']['eventType'] == 'pitching_substitution':
+                    if es_parte_alta and lanzamiento['player']['id'] not in pitchers_local:
+                        pitchers_local.append(int(lanzamiento['player']['id']))
+                    elif not es_parte_alta and lanzamiento['player']['id'] not in pitchers_visitante:
+                        pitchers_visitante.append(int(lanzamiento['player']['id']))
                 continue
 
             numero_lanzamiento += 1
@@ -731,6 +758,32 @@ def procesarTurnos(datosJuegoRaw):
             datosTablaLanzamiento['x'].append(x)
             datosTablaLanzamiento['y'].append(y)
             datosTablaLanzamiento['tipo_lanzamiento_id'].append(tipo_lanzamiento_id)
+
+        # Procesar corredores
+        for corredor in jugada['runners']:
+            corredor_id = int(corredor['details']['runner']['id'])
+            start = str(corredor['movement']['start'])
+            end = str(corredor['movement']['end'])
+            if start == 'None':
+                jugadoresEnBase[corredor_id] = len(datosTablaTurno['turno_id']) - 1
+            i = jugadoresEnBase[corredor_id]
+            match end:
+                case '1B':
+                    datosTablaTurno['llego_1b'][i] = True
+                case '2B':
+                    datosTablaTurno['llego_1b'][i] = True
+                    datosTablaTurno['llego_2b'][i] = True
+                case '3B':
+                    datosTablaTurno['llego_1b'][i] = True
+                    datosTablaTurno['llego_2b'][i] = True
+                    datosTablaTurno['llego_3b'][i] = True
+                case 'score':
+                    datosTablaTurno['llego_1b'][i] = True
+                    datosTablaTurno['llego_2b'][i] = True
+                    datosTablaTurno['llego_3b'][i] = True
+                    datosTablaTurno['llego_home'][i] = True
+                case _:
+                    del jugadoresEnBase[corredor_id]
             
     schema_df_turno = {
         'turno_id': pl.Int64,
@@ -739,6 +792,11 @@ def procesarTurnos(datosJuegoRaw):
         'es_parte_alta': pl.Boolean,
         'cuenta_outs': pl.Int64,
         'carreras_anotadas': pl.Int64,
+        'llego_1b': pl.Boolean,
+        'llego_2b': pl.Boolean,
+        'llego_3b': pl.Boolean,
+        'llego_home': pl.Boolean,
+        'es_corredor_emergente': pl.Boolean,
         'juego_id': pl.Int64,
         'bateador_id': pl.Int64,
         'pitcher_id': pl.Int64,
@@ -1028,35 +1086,36 @@ def procesarTemporada(temporada):
         try:
             datosJuegoRaw = getDatosJuegoRaw(juego_id)
             if datosJuegoRaw is None:
-                continue
-            datosTablaJuego = getDatosTablaJuego(datosJuegoRaw)
-            FkTablaJuego = {
-                'estadio_id': datosTablaJuego['estadio_id'],
-                'umpire_home_id': datosTablaJuego['umpire_home_id'],
-                'umpire_1b_id': datosTablaJuego['umpire_1b_id'],
-                'umpire_2b_id': datosTablaJuego['umpire_2b_id'],
-                'umpire_3b_id': datosTablaJuego['umpire_3b_id']
-            }
-            validarFkTablaJuego(FkTablaJuego, datosJuegoRaw)
-            insertDatosTablaJuego(datosTablaJuego)
-            datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
-            insertarDatosTablaJugador(datosTablaJugador)
-            pitchers_visitante, pitchers_local, bateadores_visitante, bateadores_local = procesarTurnos(datosJuegoRaw)
-            datosTablaJuego_pitcher_visitante = getDatosTablaJuego_pitcher(pitchers_visitante, datosJuegoRaw, False)
-            insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher_visitante)
-            datosTablaJuego_pitcher_local = getDatosTablaJuego_pitcher(pitchers_local, datosJuegoRaw, True)
-            insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher_local)
-            datosTablaJuego_bateador_visitante = getDatosTablaJuego_bateador(bateadores_visitante, datosJuegoRaw, False)
-            insertarDatosTablaJuego_bateador(datosTablaJuego_bateador_visitante)
-            datosTablaJuego_bateador_local = getDatosTablaJuego_bateador(bateadores_local, datosJuegoRaw, True)
-            insertarDatosTablaJuego_bateador(datosTablaJuego_bateador_local)
+                pass
+            else:
+                datosTablaJuego = getDatosTablaJuego(datosJuegoRaw)
+                FkTablaJuego = {
+                    'estadio_id': datosTablaJuego['estadio_id'],
+                    'umpire_home_id': datosTablaJuego['umpire_home_id'],
+                    'umpire_1b_id': datosTablaJuego['umpire_1b_id'],
+                    'umpire_2b_id': datosTablaJuego['umpire_2b_id'],
+                    'umpire_3b_id': datosTablaJuego['umpire_3b_id']
+                }
+                validarFkTablaJuego(FkTablaJuego, datosJuegoRaw)
+                insertDatosTablaJuego(datosTablaJuego)
+                datosTablaJugador = getDatosTablaJugador(datosJuegoRaw['gameData']['players'], juego_id)
+                insertarDatosTablaJugador(datosTablaJugador)
+                pitchers_visitante, pitchers_local, bateadores_visitante, bateadores_local = procesarTurnos(datosJuegoRaw)
+                datosTablaJuego_pitcher_visitante = getDatosTablaJuego_pitcher(pitchers_visitante, datosJuegoRaw, False)
+                insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher_visitante)
+                datosTablaJuego_pitcher_local = getDatosTablaJuego_pitcher(pitchers_local, datosJuegoRaw, True)
+                insertarDatosTablaJuego_pitcher(datosTablaJuego_pitcher_local)
+                datosTablaJuego_bateador_visitante = getDatosTablaJuego_bateador(bateadores_visitante, datosJuegoRaw, False)
+                insertarDatosTablaJuego_bateador(datosTablaJuego_bateador_visitante)
+                datosTablaJuego_bateador_local = getDatosTablaJuego_bateador(bateadores_local, datosJuegoRaw, True)
+                insertarDatosTablaJuego_bateador(datosTablaJuego_bateador_local)
         except Exception as err:
             elimiarJuego(juego_id)
             raise err
         sleep(1)
     
 def main():
-    #temporadas = [2025] #! Esto solo es para las pruebas
+    temporadas = [2025] #! Esto solo es para las pruebas
     temporadas = list(range(2021, 2026)) 
 
     validarTablasIndependientes()
@@ -1074,5 +1133,5 @@ def limpiarTablas():
         conn.commit()
 
 if __name__ == '__main__':
-    #limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
+    limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
