@@ -222,6 +222,11 @@ CREATE TABLE IF NOT EXISTS turno
     es_parte_alta      BOOLEAN NOT NULL ,
     cuenta_outs SMALLINT NOT NULL ,
     carreras_anotadas SMALLINT NOT NULL ,
+    llego_1b BOOLEAN NOT NULL ,
+    llego_2b BOOLEAN NOT NULL ,
+    llego_3b BOOLEAN NOT NULL ,
+    llego_home BOOLEAN NOT NULL ,
+    es_corredor_emergente BOOLEAN NOT NULL ,
 
     juego_id      INTEGER NOT NULL ,
     bateador_id   INTEGER NOT NULL ,
