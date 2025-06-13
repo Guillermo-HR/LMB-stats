@@ -692,7 +692,7 @@ def procesarTurnos(datosJuegoRaw):
         elif not es_parte_alta and bateador_id not in bateadores_local:
             bateadores_local.add(bateador_id)
 
-        # Procesar lanzamient
+        # Procesar lanzamiento
         contador_bolas = 0
         contador_strikes = 0
         numero_lanzamiento = 0
@@ -708,7 +708,6 @@ def procesarTurnos(datosJuegoRaw):
                     if corredor_anterior in jugadoresEnBase:
                         datosTablaTurno['es_corredor_emergente'][jugadoresEnBase[corredor_anterior]] = True
                         jugadoresEnBase[nuevo_corredor] = jugadoresEnBase[corredor_anterior]
-                        del jugadoresEnBase[corredor_anterior]
                 elif lanzamiento['details']['eventType'] == 'pitching_substitution':
                     if es_parte_alta and lanzamiento['player']['id'] not in pitchers_local:
                         pitchers_local.append(int(lanzamiento['player']['id']))
@@ -782,6 +781,7 @@ def procesarTurnos(datosJuegoRaw):
                     datosTablaTurno['llego_2b'][i] = True
                     datosTablaTurno['llego_3b'][i] = True
                     datosTablaTurno['llego_home'][i] = True
+                    del jugadoresEnBase[corredor_id]
                 case _:
                     del jugadoresEnBase[corredor_id]
             
@@ -1080,9 +1080,11 @@ def elimiarJuego(juego_id):
     print(f'Juego {juego_id} eliminado debido a un error en el procesamiento.')
 
 def procesarTemporada(temporada):
+    erroresGenerados = 0
     clavesJuegosTemporadaorada = getClavesJuegosTemporada(temporada)
-    print(f'Juegos a agregar: {len(clavesJuegosTemporadaorada)}')
-    for juego_id in clavesJuegosTemporadaorada:
+    print(f'Temporada: {temporada} juegos a agregar: {len(clavesJuegosTemporadaorada)}')
+    while len(clavesJuegosTemporadaorada) > 0:
+        juego_id = clavesJuegosTemporadaorada.pop(0)
         try:
             datosJuegoRaw = getDatosJuegoRaw(juego_id)
             if datosJuegoRaw is None:
@@ -1110,12 +1112,16 @@ def procesarTemporada(temporada):
                 datosTablaJuego_bateador_local = getDatosTablaJuego_bateador(bateadores_local, datosJuegoRaw, True)
                 insertarDatosTablaJuego_bateador(datosTablaJuego_bateador_local)
         except Exception as err:
+            print(f'----\n{err}')
             elimiarJuego(juego_id)
-            raise err
-        sleep(1)
-    
+            clavesJuegosTemporadaorada.append(juego_id)
+            erroresGenerados += 1
+            if erroresGenerados > 10:
+                raise Exception(f'Se han generado demasiados errores ({erroresGenerados}) en la temporada {temporada}. Deteniendo el proceso.')
+        sleep(0.1)
+
 def main():
-    temporadas = [2025] #! Esto solo es para las pruebas
+    #temporadas = [2021] #! Esto solo es para las pruebas
     temporadas = list(range(2021, 2026)) 
 
     validarTablasIndependientes()
@@ -1133,5 +1139,5 @@ def limpiarTablas():
         conn.commit()
 
 if __name__ == '__main__':
-    limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
+    #limpiarTablas()  #!Solo descomentar si se quiere reiniciar las tablas
     main()
